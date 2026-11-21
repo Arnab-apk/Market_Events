@@ -1,5 +1,6 @@
-/* Presentation readiness: new evidence/outcome elements and projector-legible minimum sizes.
-   Loaded last so it refines, rather than replaces, the existing theme files. */
+/* Presentation: styles added for the 1 December demo. Run-summary, policy, outcome and synthetic-label
+   elements, plus projector-legible minimum text sizes on laptop/desktop widths (≥1101px).
+   Loaded last (see layout.tsx) so it refines the earlier files without replacing them. */
 
 /* Run summary */
 :root .run-summary h3 { margin: 22px 0 10px; font-size: 15px; color: var(--mode-text); }

@@ -1,3 +1,4 @@
+// Server-side guard for the API proxy: only same-machine (loopback) browser origins may send writes.
 /** NextURL canonicalizes loopback names to localhost. Use the original Host
  * for browser origin comparison, while restricting this service to loopback. */
 export function acceptsLocalOrigin(origin: string | null, host: string | null, protocol: string, port: string) {

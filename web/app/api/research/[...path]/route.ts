@@ -1,3 +1,5 @@
+// API proxy: forwards /api/research/<endpoint> to the Python FastAPI service (MARKET_EVENTS_API_URL,
+// default http://127.0.0.1:8000/api/<endpoint>). Allow-lists read and write endpoints; refuses cross-origin writes.
 import { NextRequest } from "next/server";
 import { acceptsLocalOrigin } from "../../../_lib/request-origin";
 

@@ -1,0 +1,143 @@
+/* Base: element defaults (body, headings, form controls), accessibility helpers (.sr-only),
+   loading states, page-enter animation and @keyframes.
+   Import order (layout.tsx): tokens → base → layout → components → overview → presentation.
+   `:root .x` selectors are deliberate: the extra specificity lets the light/dark colour rules win over
+   structural rules. A few rules sit in a later file than their topic because they must come after
+   a rule there; moving them would change the cascade. */
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  font: 13px/1.6 var(--font);
+  font-feature-settings: normal;
+  letter-spacing: 0;
+  background: var(--mode-bg);
+  color: var(--mode-text);
+  font-size: 14px;
+}
+button, input, select, textarea { font: inherit; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button, a {
+  touch-action: manipulation;
+  transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+a { color: inherit; text-decoration: none; }
+button, select, input, textarea { border-radius: 7px; }
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: 31px; line-height: 1.2; letter-spacing: -1.1px; font-weight: 650; }
+h2 { font-size: 16px; font-weight: 600; letter-spacing: -.2px; }
+h3 { font-size: 17px; font-weight: 600; }
+small { font-size: 12px; }
+svg { flex-shrink: 0; }
+button svg, a svg { pointer-events: none; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+th {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  text-transform: uppercase;
+  padding: 11px 20px;
+  border-color: #35382f;
+  background: #1b1e17;
+  color: #b4baaa;
+  font: 500 10px/1.65 var(--font);
+  letter-spacing: .55px;
+}
+tbody tr:last-child td { border-bottom: 0; }
+input, select, textarea {
+  max-width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #656f56;
+  border-radius: 9px;
+  background: #12150f;
+  color: #e7eade;
+  box-shadow: inset 0 1px 2px #0000001a;
+  font-size: 13px;
+}
+textarea { resize: vertical; line-height: 1.8; }
+input[type=checkbox] { accent-color: var(--accent); min-height: 16px; width: 16px; height: 16px; }
+input[type=range] { padding: 0; min-height: 30px; accent-color: var(--accent); }
+html { scroll-padding-top: 24px; }
+button, a, input, select, textarea, summary { scroll-margin-block: 20px; }
+tbody th { text-transform: none; letter-spacing: 0; background: transparent; color: #bac4ac; font-size: 11px; }
+input::placeholder, textarea::placeholder { opacity: 1; }
+input:disabled, select:disabled, textarea:disabled { opacity: .6; cursor: not-allowed; }
+input[type="range"] { min-height: 36px; box-shadow: none; }
+button:active:not(:disabled) { filter: brightness(.94); }
+tbody tr:hover { background: #c9f56b04; }
+input:not([type=checkbox]):not([type=radio]), select, textarea {
+  background: #101010;
+  color: #e5e0d0;
+  border: 1px solid #363636;
+  border-radius: 6px;
+  box-shadow: inset 0 2px 4px #0005;
+}
+table thead th { text-transform: none; }
+::selection { background: #a6c95c66; color: var(--mode-text); }
+:root :is(button, a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--mode-link);
+  outline-offset: 4px;
+}
+:root input::placeholder, :root textarea::placeholder { color: var(--mode-soft); }
+:root input[readonly], :root textarea[readonly] { background: var(--mode-raised); color: var(--mode-muted); }
+:root input[type="checkbox"], :root input[type="range"] { accent-color: var(--mode-link); }
+:root table thead th, :root .premium-overview th {
+  background: var(--mode-raised);
+  color: var(--mode-muted);
+  border-color: var(--mode-border);
+  font-size: 11px;
+}
+:root table tbody td, :root table tbody th { color: var(--mode-text); border-color: var(--mode-border); }
+:root table tbody tr:hover { background: var(--mode-hover); }
+
+.sr-only { position: absolute; overflow: hidden; clip: rect(0,0,0,0); width: 1px; height: 1px; white-space: nowrap; }
+
+.boot { color: var(--muted); padding: 60px 24px; font: 13px/1.8 var(--mono); }
+
+.spin { animation: spin 1s linear infinite; }
+
+.page-enter { animation: none; }
+
+@media (min-width: 1600px) {
+  td { padding-block: 19px; }
+}
+
+td { border-bottom: 1px solid #202936; padding: 14px 20px; border-bottom-color: #2f3229; color: #daddd2; }
+
+@media (max-width: 520px) {
+  h1 { font-size: 28px; }
+  th { padding: 11px 16px; }
+  td { padding: 14px 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .page-enter { animation: none !important; transition: none !important; }
+}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes page-enter{from{opacity:.7;transform:translateY(3px)}to{opacity:1;transform:none}}

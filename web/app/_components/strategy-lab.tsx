@@ -1,5 +1,7 @@
 "use client";
 
+// Strategy lab: local price history with indicators (POST /api/history), a backtest with fees and slippage
+// (POST /api/backtest), a Monte Carlo bootstrap (POST /api/monte-carlo) and an optional TradingView widget.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownToLine, FlaskConical, LoaderCircle, Pause, Play, RotateCcw, ShieldCheck } from "lucide-react";
 import { Empty, Metric, PageHeading } from "./research-app";

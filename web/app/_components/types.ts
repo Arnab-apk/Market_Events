@@ -1,3 +1,4 @@
+// Shared TypeScript types for API responses (Workspace, Run, Outcome, …) plus small formatting helpers.
 export type Scope = { workspace: "local" | "demo"; universe: "live" | "demo" };
 export type Company = {
   instrument_id: string; name: string; sector?: string; trading_symbol?: string;
@@ -56,7 +57,7 @@ export function sourceTitle(text: string, length = 125) {
   const line = text.replace(SYNTHETIC_PREFIX, "").split("\n")[0];
   return { synthetic, title: line.length > length ? `${line.slice(0, length - 1)}…` : line };
 }
-export const POLICY_LABELS: Record<string, string> = {
+const POLICY_LABELS: Record<string, string> = {
   llm_only: "Large model only",
   slm_filter: "Small-model filter → large-model extraction",
   slm_delegate: "Small model with delegated extraction",

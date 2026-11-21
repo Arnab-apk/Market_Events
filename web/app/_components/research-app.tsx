@@ -1,5 +1,8 @@
 "use client";
 
+// App shell: sidebar, top bar, workspace switcher and the section router. Loads GET /api/workspace,
+// owns the `api` helper every panel uses, and runs POST /api/demo for "Load synthetic demo".
+// Also exports shared UI pieces (PageHeading, Metric, Empty, JsonView, Status).
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -11,7 +14,7 @@ import {
 import { Api, Scope, Workspace, human } from "./types";
 import { ConnectionsPanel, EventsPanel, ImportsPanel, SavedPanel, ComparisonsPanel, TechnicalsPanel } from "./workspace-panels";
 import StrategyLab from "./strategy-lab";
-import { useReducedMotion } from "./signal-hero";
+import { useReducedMotion } from "./use-reduced-motion";
 import PremiumOverview from "./premium-overview";
 import SpotlightCard from "./react-bits/SpotlightCard";
 import ThemeToggle, { useTheme } from "./theme-toggle";

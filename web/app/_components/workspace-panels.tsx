@@ -1,5 +1,8 @@
 "use client";
 
+// Section panels: Event research (POST /api/analyse), Saved results (GET /api/case/<id>, POST /api/outcomes,
+// /api/explain/<id>), Import evidence (POST /api/import), Price indicators (POST /api/technicals),
+// Connections (POST /api/sync/<kind>, /api/analyse-news) and Comparisons (GET /api/comparisons).
 import { useState } from "react";
 import Link from "next/link";
 import { WorkspaceSummary } from "./workspace-summary";

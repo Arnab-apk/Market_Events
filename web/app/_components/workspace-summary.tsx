@@ -1,3 +1,4 @@
+// Three-up summary strip (label, value, detail) shown under each section heading. Pure display; no API calls.
 import type { ReactNode } from "react";
 
 type SummaryItem = { label: string; value: ReactNode; detail: string };

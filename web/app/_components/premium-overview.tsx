@@ -1,5 +1,7 @@
 "use client";
 
+// Overview section: hero actions, research guide, workspace counts, saved price chart (POST /api/technicals),
+// evidence-coverage ring, company table and recent sources. Uses Workspace data from GET /api/workspace.
 import Link from "next/link";
 import ResearchGuide from "./research-guide";
 import { useId, useRef, useState } from "react";

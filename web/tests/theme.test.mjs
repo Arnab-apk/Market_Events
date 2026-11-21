@@ -124,7 +124,7 @@ function luminance(hex) {
   const rgb = hex.slice(1).match(/../g).map(x => parseInt(x, 16) / 255).map(x => x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4);
   return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
 }
-const css = postcss.parse(fs.readFileSync(path.join(app, 'color-modes.css'), 'utf8'));
+const css = postcss.parse(fs.readFileSync(path.join(app, 'tokens.css'), 'utf8'));
 for (const mode of ['dark', 'light']) test(`${mode} theme meets text, chart and focus contrast thresholds`, () => {
   const tokens = {};
   css.nodes.filter(node => node.selector === ':root' || (mode === 'light' && node.selector === ':root[data-theme="light"]')).forEach(node => node.nodes.forEach(decl => { if (decl.prop.startsWith('--')) tokens[decl.prop] = decl.value; }));

@@ -1,3 +1,4 @@
+// Theme constants: the localStorage key and the inline script that sets <html data-theme> before paint.
 export const THEME_STORAGE_KEY = "market-events-theme";
 
 // Runs before paint so a saved light preference never flashes the dark palette.

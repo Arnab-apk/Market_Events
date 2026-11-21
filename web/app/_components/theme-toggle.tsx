@@ -1,5 +1,6 @@
 "use client";
 
+// Light/dark theme button and the useTheme() hook (reads <html data-theme>, persists to localStorage). No API data.
 import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 import { THEME_STORAGE_KEY } from "../theme-config";

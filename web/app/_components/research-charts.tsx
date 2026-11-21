@@ -1,5 +1,7 @@
 "use client";
 
+// Chart components built on lightweight-charts: PriceChart (OHLC + indicator panes) and EquityChart
+// (strategy vs buy & hold). Data comes from the strategy-lab and technicals API responses.
 import { useEffect, useRef, useState } from "react";
 import type { IChartApi, Time } from "lightweight-charts";
 import type { Backtest, Bar, Point } from "./types";

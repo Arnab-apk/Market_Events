@@ -1,5 +1,7 @@
 "use client";
 
+// The three-step "Your research path" card on the overview (import → investigate → inspect).
+// Reads article and run counts from the Workspace data; no API calls.
 import Link from "next/link";
 import { ArrowRight, Check, FilePlus2, SearchCheck, BookOpenCheck, Sparkles } from "lucide-react";
 import type { Workspace } from "./types";

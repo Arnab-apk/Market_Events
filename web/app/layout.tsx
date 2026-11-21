@@ -1,11 +1,11 @@
+// Root HTML layout: loads the stylesheets in cascade order (tokens → presentation) and applies the
+// saved light/dark theme before first paint. No API data.
 import type { Metadata } from "next";
-import "./globals.css";
-import "./fintech-theme.css";
-import "./hero.css";
-import "./premium-overview.css";
-import "./premium-theme.css";
-import "./crypto-system.css";
-import "./color-modes.css";
+import "./tokens.css";
+import "./base.css";
+import "./layout.css";
+import "./components.css";
+import "./overview.css";
 import "./presentation.css";
 import { THEME_INIT_SCRIPT } from "./theme-config";
 
