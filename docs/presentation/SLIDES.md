@@ -8,7 +8,7 @@ given in each slide's notes. **All bundled articles, prices and replay outputs a
 synthetic label visible whenever a number is on screen.
 
 Facts checked on 2026-11-21:
-- `pytest -q`: **521 passed** (run on 2026-11-21).
+- `pytest -q`: **561 passed** (re-run after the cleanup and feature commits, 2026-11-21).
 - Replay demo (re-run in a scratch database): `syn-001` earnings gives positive evidence, score 0.40,
   coverage 100%. `syn-003` order gives positive evidence, 0.40, 100%. `syn-002` crude-oil disruption gives
   neutral/mixed evidence, 0.04, 100%, with a conflict flag.
@@ -60,12 +60,12 @@ is "not shown" (slide 14). Say so now, so the examiners know we are not overclai
 | --- | --- | --- |
 | Catalyst-to-confirmation pipeline (news event → market confirmation → fused evidence) | "Confidence" → **evidence coverage + abstention**: a coverage figure doesn't pretend to be a calibrated probability | VLM chart-reading tier |
 | SLM triage + LLM extraction, with three comparable policies | Ranked recommendations → **signed evidence score**: no investment advice | Derivatives signals (OI, PCR, IV) |
-| Entity resolution from reviewed aliases | Sentiment → **structured event extraction**: grounded, verifiable fields instead of polarity | Walk-forward validation |
+| Entity resolution from reviewed aliases | Sentiment → **structured event extraction**: grounded, verifiable fields instead of polarity | Rolling multi-split walk-forward (one split delivered) |
 | Optional explanation agent (separate child run) | Kite → **Upstox** (free read-only analytics token); PostgreSQL → **SQLite** (single-user, portable, append-only triggers) | Live paper trading |
 | Equity confirmation: benchmark excess return (scored); RSI and other technicals, plus volume ratio (recorded as context) | backtesting.py / vectorBT → **audited custom engine** (next-open fills, explicit costs, inspectable assumptions) | Real-market evaluation (dated corpus, gold labels) |
-| MCX commodity confirmation via reviewed exposure rules | LangGraph → **deterministic pipeline orchestrator** (reproducible, replayable, no hidden agent state) | Redis / MongoDB / Prometheus for scale and monitoring |
+| MCX commodity confirmation via reviewed exposure rules (synthetic demo; live near-month MCX crude path offline-tested) | LangGraph → **deterministic pipeline orchestrator** (reproducible, replayable, no hidden agent state) | Redis / MongoDB / Prometheus for scale and monitoring |
 | Weighted, explainable fusion | Ablation → **commodity sensitivity comparison** on frozen inputs | Proper event study (CAR, BMP), deflated Sharpe and PBO |
-| Message-level provenance and immutable runs; backtesting, Monte Carlo, FastAPI | **Added, not in the synopsis:** point-in-time cutoffs on every input; outcomes kept separate from decisions | Parametric look-ahead tests; SLM-extract-then-escalate policy |
+| Message-level provenance and immutable runs; backtesting with a **walk-forward split** (in-sample vs out-of-sample, fixed config), Monte Carlo, FastAPI | **Added, not in the synopsis:** point-in-time cutoffs on every input; outcomes kept separate from decisions | Parametric look-ahead tests; SLM-extract-then-escalate policy |
 
 - Every change trades breadth for auditability. The scope is narrower than the synopsis, and every claim can be checked.
 
@@ -93,8 +93,10 @@ as "roughly" and "per press commentary". They are not verified against annual re
 the 55–60% airline figure; its primary source is unverified [U]. Our rules in `configs/exposure_rules.json`
 use direction −1 for all five demo companies and are labelled "Conceptual synthetic input-cost sensitivity
 assumption; not empirically validated". The press figures show *why* −1 is plausible. They do not validate
-the rules. The live universe has no reviewed exposure rules yet (`configs/live_exposure_rules.json` is
-absent), so a Reliance commodity case would abstain. That is correct behaviour.
+the rules. Live rules now exist (`configs/live_exposure_rules.json`): Asian Paints, Berger and IndiGo at −1 on
+`LIVE:MCX:CRUDEOIL`, sourced [S] and pending team review, with `known_at` 2026-11-21. Reliance (sign ambiguous) and
+Pidilite (unsourced) are reviewed *without* a rule, so a Reliance crude case abstains, and so does any real
+article analysed at a cutoff before 21 November 2026. That is correct behaviour.
 
 ---
 
@@ -145,7 +147,7 @@ requests are hashed and reused instead of re-running inference (`pipeline.py`, `
 - The score, coverage, label and abstention are computed in `fusion.py`. **No model ever outputs a score.**
 - The optional explanation must equal the saved deterministic text and spans. It is a separate child run.
 
-**Speaker notes:** Show `agents/event_agent.py` lines 26–48: any span not in `article.text`, or an
+**Speaker notes:** Show `agents/event_agent.py` lines 34–56: any span not in `article.text`, or an
 amount whose number, unit or scale isn't in its span, sets the result to `unsupported`. Fusion then
 abstains ("Event extraction is not validated"). In `filter_agent.py`, an "irrelevant" verdict with no
 supporting span becomes "uncertain" and is escalated rather than dropped. `pipeline.explain_run` saves the
@@ -161,8 +163,8 @@ explanation as a child run, so it cannot alter the parent.
 - Provider downloads record their real fetch time as availability, so history downloaded today cannot backfill a past cutoff
 - Stale inputs (latest bar more than 4 calendar days before the cutoff) are flagged and gated out by fusion
 
-**Speaker notes:** Code: `pipeline.py` lines 60–79 filter observations and articles on both times.
-`market_features.py` `series()` repeats the check, and lines 215–216 mark staleness.
+**Speaker notes:** Code: `pipeline.py` lines 83–102 filter observations and articles on both times.
+`market_features.py` `series()` repeats the check, and lines 66–67 mark staleness.
 `exposure.find_exposure` picks the latest vintage known at the cutoff. Demo proof (re-run 2026-11-21):
 `syn-002` at a 07:00 UTC cutoff, before its 08:00 publication, returns status `ineligible` with "Article
 publication/first-seen time is later than the decision cutoff". At 10:30 UTC (16:00 IST), the equity close is
@@ -218,7 +220,7 @@ score uses the *reaction-day* excess return already visible at the cutoff. Keep 
 - Per-run budgets: 4 requests, conservative 24,000-unit admission estimate, 2 attempts per task
 - Every attempt is traced: model, prompt hash, request hash, status, latency, and tokens when reported
 
-**Speaker notes:** Routing is `pipeline.py` lines 156–165, and budgets are `config.Settings` and
+**Speaker notes:** Routing is `pipeline.py` lines 179–188, and budgets are `config.Settings` and
 `model_client.ask`. The admission estimate is serialized bytes plus the output allowance, not real tokens.
 The dashboard label "Large-model extraction only" for `llm_only` hides that it still runs an LLM filter.
 Replay returns the same recorded output for any role, so **replay cannot show a policy difference**; only
@@ -248,27 +250,27 @@ prices are constant geometric paths** (equity +1%/session, benchmark +0.2%, crud
 
 ## Slide 13: Strategy lab (retrospective price research)
 
-- Six rules: SMA cross, EMA cross, buy and hold, RSI reversion, MACD cross, Bollinger reversion. Long/cash only.
-- Signal at the close → fill at the **next** observed open. Fees and adverse slippage on every fill (defaults 10 and 5 bps).
-- Metrics: total return, buy-and-hold, max drawdown, Sharpe (√252, zero risk-free), CAGR, win rate
+- Six long/cash rules. Signal at the close → fill at the **next** observed open, with fees and adverse slippage on every fill (defaults 10 and 5 bps).
+- Metrics: total return, buy and hold, max drawdown, Sharpe (√252, zero risk-free), **probabilistic Sharpe** (single configuration, not deflated), CAGR, win rate
+- **Walk-forward split:** one configuration fixed in advance, run independently on in-sample (2015–2019) and out-of-sample (2020) segments
 - Monte Carlo: seeded PCG64 moving-block bootstrap (Künsch 1989) of strategy returns, with p05/p50/p95 bands
-- Study window capped at 31 Dec 2020. The 2026 synthetic demo is excluded and never substituted.
+- Studies end 31 Dec 2020. The demo uses `SYNTHETIC:LAB_DEMO`, a **zero-drift random walk**, as a sanity check: the correct result is "no edge".
 
-**Speaker notes:** Code: `strategy_lab.run_backtest` and `strategy_lab.monte_carlo`. The assumptions are
-returned with every result. The Monte Carlo "loss frequency" is a resampling statistic, **not** a
-probability of future loss. Overfitting: the Sharpe is for a single configuration and is **not deflated**
-for the number of configurations tried (Bailey & López de Prado 2014). On stage, we fix the configuration
-in advance and only stress costs (demo step 7). A probabilistic Sharpe ratio has been *requested* from the
-backend team; mention it only if it is visible in the build on the day. Real history needs an explicit
-Upstox download; no token was configured. Any on-screen lab result comes from
-`SYNTHETIC:LAB_DEMO`, an authored seeded zero-drift random walk (2019–2020, 523 sessions). It verifies the
-interface; never present it as performance.
+**Speaker notes:** Code: `strategy_lab.run_backtest`, `strategy_lab.walk_forward`, `strategy_lab.probabilistic_sharpe`
+and `strategy_lab.monte_carlo`. Assumptions are returned with every result. Synthetic figures, computed 2026-11-21
+through the API (SMA 20/50, 2015–2020, 10/5 bps): −52.5% against buy and hold +33.8%, Sharpe −0.79, PSR 0.025,
+20 trades. At 2× costs, −55.3%. Walk-forward gives −41.4% in-sample and −17.5% out-of-sample. Say it as "no edge
+found, costs make it worse, PSR ≈ 2%". With 20 trades, it is below a 30-trade low-sample threshold. The Sharpe and
+PSR are not deflated for the number of configurations tried (Bailey & López de Prado 2014), which is why the
+configuration is fixed in advance and only costs are stressed on stage. A single split is a robustness check, not
+proof of a persistent edge. Real history needs an explicit Upstox download, and no token is configured. The
+1,566-session series is labelled QA history; never present it as performance.
 
 ---
 
 ## Slide 14: Results and limitations, stated honestly
 
-- **Software:** 521 automated tests pass, and the replay demo is offline and reproducible. Synthetic replay: earnings and order give positive (0.40), crude disruption gives neutral (0.04) with a conflict, duplicates stop with 0 calls, and updates are recognised.
+- **Software:** 561 automated tests pass, and the replay demo is offline and reproducible. Synthetic replay: earnings and order give positive (0.40), crude disruption gives neutral (0.04) with a conflict, duplicates stop with 0 calls, and updates are recognised.
 - **Live dev pilot (synthetic inputs):** `qwen3.5:2b` ran 30 filter calls with 0 failures and forwarded 24 of 24 expected items. `gemma4:e4b` produced 3 of 3 grounded extractions after a schema fix.
 - **Policies:** the live run (7 synthetic articles each) gave `llm_only` 8 calls against 9 and 9 for the SLM policies, so **no saving**. The replay table is identical across policies by construction.
 - **Not claimed:** accuracy, F1, calibration or profitability. There is no held-out real corpus.

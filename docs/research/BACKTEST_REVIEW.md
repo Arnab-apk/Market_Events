@@ -6,6 +6,12 @@ its scripts were not run. The numbers come from this project's own `strategy_lab
 `sma_cross` (20/50) on `tests/fixtures/synthetic_lab_history.csv`. That file is `SYNTHETIC:LAB_DEMO`,
 a seeded zero-drift random walk covering 2019-01-01 to 2020-12-31 (523 bars).
 
+> **Update (2026-11-21, later the same day):** the series now spans 2015-01-01 to 2020-12-31 (1,566 bars),
+> and walk-forward and a low-sample warning are being added. The current figures for the same configuration are:
+> −52.5% vs buy-and-hold +33.8%, Sharpe −0.79, PSR 0.025, max drawdown −55.7%, **20 closed trades**, and
+> −55.3% at 2× costs. Walk-forward gives −41.4% in-sample and −17.5% out-of-sample. Items 2 and 3 below are done,
+> the verdict is unchanged (still below 30 trades), and the original 2-year review follows.
+
 | Metric | Base (10 bps fee, 5 bps slippage) | Stress (2× costs) |
 |---|---|---|
 | Total return | −36.9% | −38.4% |

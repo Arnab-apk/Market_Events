@@ -105,7 +105,10 @@ not empirically validated" (`configs/exposure_rules.json`). It is motivated, not
 press figures: crude-linked inputs are roughly 30–50% of paint raw-material costs, and ATF is roughly
 35–40% of Indian airline operating costs (`RESEARCH_BRIEF.md` §1.5, marked [S]). The sign is
 firm-specific. A refiner such as Reliance can have the opposite or a state-dependent sensitivity, which is
-why rules are reviewed, versioned and cutoff-dated rather than learned.
+why rules are reviewed, versioned and cutoff-dated rather than learned. For real data,
+`configs/live_exposure_rules.json` holds direction-only rules for Asian Paints, Berger and IndiGo on
+`LIVE:MCX:CRUDEOIL`. They are [S]-sourced, pending team review, with `known_at` 2026-11-21, so they cannot support an
+earlier cutoff. Reliance and Pidilite are reviewed without a rule, so they abstain.
 
 ## D. Models and policies
 
@@ -162,7 +165,11 @@ Fills happen at the next observed open after a close signal, with fees and adver
 configuration. We do not log trials, so there is no deflated Sharpe or PBO yet (Bailey & López de Prado
 2014). The engine now also reports `probabilistic_sharpe` with the note "single configuration; not
 deflated for the number of configurations tried" (`strategy_lab.probabilistic_sharpe`). On stage, the
-configuration is fixed in advance and only costs are stressed (×2).
+configuration is fixed in advance and only costs are stressed (×2). A walk-forward split
+(`strategy_lab.walk_forward`; `walk_forward_split` on `POST /api/backtest`) runs the same fixed configuration
+independently on in-sample and out-of-sample segments. On the demo's zero-drift random walk, both halves
+lose (−41.4% for 2015–2019, −17.5% for 2020), which is the correct "no edge" answer. A single split is a
+robustness check, not proof of an edge. With 20 trades, it is below a 30-trade low-sample threshold.
 
 **24. What does the Monte Carlo tell me?**
 It is a seeded PCG64 overlapping moving-block bootstrap of the strategy's own daily returns, without
@@ -170,7 +177,7 @@ wrap-around (Künsch 1989; `strategy_lab.monte_carlo`). It shows dispersion unde
 "loss frequency" is not a probability of future loss. Regime changes and survivorship are not captured.
 
 **25. What is actually verified, and what isn't?**
-Verified: 521 automated tests pass (`pytest -q`, 2026-11-21) across ingestion, immutable storage, routing,
+Verified: 561 automated tests pass (`pytest -q`, 2026-11-21) across ingestion, immutable storage, routing,
 fusion, features, technicals, outcomes, strategy lab, API and UI workflows (`tests/`). The offline replay
 demo is reproducible. Not verified: a real provider-account connection (the adapter is tested only with
 mocked HTTP, per `docs/LIVE_SETUP.md`), predictive quality, profitability, exchange-calendar completeness,
@@ -199,7 +206,8 @@ Each change chose auditability and honesty over breadth (slide 3):
 - **Tooling.** Kite → Upstox, for a free read-only analytics token. PostgreSQL → SQLite, for a single-user, portable, append-only ledger. backtesting.py/vectorBT → a small audited engine whose fill, cost and assumption rules are explicit and tested. LangGraph → a deterministic orchestrator that replays exactly.
 - **Ablation → commodity sensitivity comparison** on frozen inputs (`experiments.compare_ablations`).
 - **Additions not in the synopsis:** point-in-time cutoffs on every input, and outcomes kept separate from decisions.
-- **Deferred to future work:** a VLM chart tier, derivatives (OI, PCR, IV), walk-forward validation, live paper trading, real-market evaluation, and Redis/MongoDB/Prometheus, because none could be verified honestly with synthetic data and no live account in the time available.
+- **Delivered after the synopsis review:** a single walk-forward split for a fixed backtest configuration (rolling multi-split walk-forward remains future work).
+- **Deferred to future work:** a VLM chart tier, derivatives (OI, PCR, IV), live paper trading, real-market evaluation, and Redis/MongoDB/Prometheus, because none could be verified honestly with synthetic data and no live account in the time available.
 
 Several synopsis references could not be verified, so citations now come only from [V] entries in
 `docs/research/RESEARCH_BRIEF.md`.
@@ -218,4 +226,5 @@ Several synopsis references could not be verified, so citations now come only fr
 | Demo outcomes | gross 4.58%, net 4.48%, benchmark 0.90% (constant-growth fixtures) |
 | Pilot | 30 filters, 0 failures, 24/24 forwarded; 3/3 grounded extractions [`runs/local_model_pilot.json`] |
 | Live policy calls | 8 / 9 / 9 (llm_only / slm_filter / slm_delegate) [`runs/policy_comparison.json`] |
-| Tests | 521 passed [`pytest -q`, 2026-11-21] |
+| Tests | 561 passed [`pytest -q`, 2026-11-21, after the cleanup and feature commits] |
+| Step-7 lab (random walk, SMA 20/50, 2015–2020) | −52.5% vs buy and hold +33.8%; Sharpe −0.79; PSR 0.025; 20 trades. 2× costs: −55.3%. Walk-forward: −41.4% in-sample, −17.5% out-of-sample [`POST /api/backtest`, 2026-11-21] |

@@ -38,12 +38,12 @@ flowchart LR
         end
         Out["outcomes.evaluate_outcome<br/>next open → 5th-session close<br/>separate, explicit"]
         Exp["experiments<br/>policy summaries · cohorts · ablations"]
-        Lab["strategy_lab<br/>≤ 2020-12-31 · next-open backtest<br/>seeded block bootstrap"]
+        Lab["strategy_lab<br/>≤ 2020-12-31 · next-open backtest<br/>walk-forward split · block bootstrap"]
         DB[("SQLite ledger · storage.py<br/>append-only triggers<br/>outcomes stored separately")]
     end
 
     Models["Ollama / OpenAI-compatible<br/>(live mode only)"]
-    Upstox["Upstox read-only API<br/>(explicit sync only)"]
+    Upstox["Upstox read-only API<br/>NSE equities + MCX near-month crude<br/>(explicit sync only)"]
 
     UI --> Proxy --> Pipe
     Pipe --> Memory
@@ -75,7 +75,7 @@ flowchart LR
    is schema-validated and grounded (`agents/filter_agent.py`, `agents/event_agent.py`).
 3. The right box is ordinary deterministic Python. Same inputs give the same score
    (`fusion.py`), and every input is filtered by the decision cutoff (`market_features.py`,
-   `pipeline.py` lines 60–79).
+   `pipeline.py` lines 83–102).
 4. Outcomes, comparisons and the strategy lab read the ledger. They never rewrite a saved decision.
 
 ## Plain-text fallback (if mermaid does not render on the projector)
@@ -91,6 +91,6 @@ Browser (Next.js :3000)
             │                           → cutoff-safe features → fusion score / abstain
             ├─ outcomes (separate, explicit)    next open → 5th close, 10 bps round trip
             ├─ experiments (read-only)          policy usage, cohorts, commodity ablation
-            ├─ strategy_lab (read-only)         ≤2020-12-31, next-open fills, block bootstrap
+            ├─ strategy_lab (read-only)         ≤2020-12-31, next-open fills, walk-forward, block bootstrap
             └─ SQLite ledger (append-only runs, calls, assessments; outcomes upserted separately)
 ```

@@ -21,7 +21,7 @@ replayed from recorded outputs. It demonstrates the software's behaviour, not ma
    ```
    Wait for `Market Events website: http://127.0.0.1:3000`. Open it in the browser and zoom to fit
    1366×768 or 1920×1080. Pick the light or dark theme with the sun/moon button.
-2. **Strategy lab fallback (only used if the Next.js synthetic lab series is missing; see step 7).** In a second PowerShell window:
+2. **Strategy lab fallback (only if the Next.js lab fails; see step 7).** In a second PowerShell window:
    ```powershell
    $env:PYTHONPATH = "src"; .\.venv\Scripts\python.exe scratch\build_strategy_qa.py
    .\.venv\Scripts\python.exe -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
@@ -80,8 +80,8 @@ selector, which reads the demo database saved in rehearsal. Otherwise use Stream
 
 **Click:**
 1. Top nav **Import** (sidebar: **Import evidence**).
-2. Point at the summary band: **Article sources 35**, **Market observations** (128 event bars, or 651 if
-   the 523-bar synthetic lab series is loaded). Click the tab **Market prices · CSV** to show the required headers, including `available_at`.
+2. Point at the summary band: **Article sources 35**, **Market observations 1,694** (128 synthetic event bars plus
+   the 1,566-bar synthetic lab series). Click the tab **Market prices · CSV** to show the required headers, including `available_at`.
 3. Top nav **Research** (sidebar: **Event research**). In **Search sources**, type `crude`.
 4. Click the item that begins "EXPLICITLY SYNTHETIC FIXTURE. Berger Paints faces synthetic input cost pressure…" (`2026-01-12 · syn-002`).
 
@@ -104,6 +104,7 @@ times are before the decision cutoff." Do not import anything on stage.
 - Heading **commodity supply disruption**, status **completed**, "Recorded replay · slm delegate"
 - **Evidence label: neutral**, **Signed evidence score: 0.04**, **Evidence coverage: 100.00%**
 - Warning box: **"Equity and exposure-adjusted commodity evidence disagree"**
+- If the build shows the plain-language fields (`score_formula`, `plain_summary` from `plain_language.py`): "0.6 × (+0.40 equity vs benchmark) + 0.4 × (−0.50 crude oil, exposure-adjusted) = +0.04 → neutral (threshold ±0.15)". You can read this aloud instead of doing the arithmetic yourself.
 - **Supporting source passages**: verbatim sentences from the article
 
 **Say:** "The model's only job was to say *what happened*: a crude-oil supply disruption affecting Berger
@@ -194,59 +195,57 @@ ablation: the commodity channel turns a positive equity signal neutral on identi
 **Fallback:** the policy rows saved in rehearsal (step 4 of "Before the session") already appear after
 **Load saved comparisons**. Or use `research-comparisons.json` from the pack, or CLI `experiments`.
 
-## Step 7: Strategy lab, with a pre-committed cost-stress test (5:30–7:15)
+## Step 7: Strategy lab, a random-walk sanity check (5:30–7:15)
 
-**Status on 2026-11-21:** the backend has added a labelled synthetic lab series to the demo workspace. Its numbers are an authored random walk; never present them as performance.
-`run_demo` loads `tests/fixtures/synthetic_lab_history.csv` (`SYNTHETIC:LAB_DEMO`, 523 sessions,
-2019-01-01 to 2020-12-31, an "authored seeded zero-drift random walk, not market data"), and `api.py`
-`research_companies` lists it for the demo universe only (`configs/synthetic_lab.json`). It never enters
-event evidence. **At rehearsal, click Try synthetic demo again**, because the existing demo database
-predates this series, and check that the instrument appears. If it doesn't, use the Streamlit fallback below.
-**Do not** import `scratch/SYNTHETIC_UI_QA_2020.csv` into the dashboard: it labels synthetic sine-wave
+**Frame it before any number appears.** The lab series `SYNTHETIC:LAB_DEMO` is an **authored, seeded,
+zero-drift random walk**: 1,566 sessions, 2015-01-01 to 2020-12-31 (`configs/synthetic_lab.json`,
+`tests/fixtures/synthetic_lab_history.csv`). It has no edge by construction. The beat checks that the
+engine reports *no edge*, that costs make things worse, and that a fixed configuration is not tuned.
+It never enters event evidence. **Do not** import `scratch/SYNTHETIC_UI_QA_2020.csv`: it labels synthetic
 prices as `NSE:ASIANPAINT`, which would show as "Asian Paints" with no synthetic banner.
 
-**Click (Next.js):**
-1. Top nav **Strategies** (sidebar: **Strategy lab**). Point at **Research boundary 31 Dec 2020** and at
-   any demo-universe notice that the 2026 demo is excluded.
-2. **Instrument** → **Synthetic lab series (QA only) · 523 pre-2021 bars**. Point at the banner
-   **"SYNTHETIC QA HISTORY · Interface verification only; not performance evidence."**
-3. Keep **Study start** 2015-01-01 and **Study end** 2020-12-31. Click **Load local history**. Optionally tick **RSI 14** or **MACD** under the chart.
-4. **Pre-committed configuration, do not change on stage:** **Strategy** **SMA crossover**, **Initial
-   capital** 100000, **Fee per fill (bps)** 10, **Slippage per fill (bps)** 5, **Fast period** 20,
-   **Slow period** 50. Click **Run backtest**.
-5. **Cost-stress beat:** change only **Fee per fill (bps)** to **20** and **Slippage per fill (bps)** to **10**. Click **Run backtest**.
-6. Restore 10 and 5 and click **Run backtest**. In **Monte Carlo lab**, keep 300 paths, horizon 252,
-   seed 42 and block size 5. Click **Simulate return paths**, then **Play**.
+**Say first:** "This series is a random walk I generated. A sound engine should find no edge here. If it
+found one, that would be a bug. The configuration was fixed before this presentation, and I won't tune it
+on stage."
 
-**Expect** (computed 2026-11-21 by running `strategy_lab.run_backtest` and `monte_carlo` on the fixture CSV. Synthetic; quote only as interface behaviour):
+**Click (Next.js; labels as of 2026-11-21, re-check at rehearsal because demo-ui is still polishing):**
+1. Top nav **Strategies**. **Instrument** → **Synthetic lab series (QA only) · 1566 pre-2021 bars**. Point
+   at **"SYNTHETIC QA HISTORY · Interface verification only; not performance evidence."**
+2. Keep **Study start** 2015-01-01 and **Study end** 2020-12-31. Click **Load local history**.
+3. **Pre-committed configuration:** **SMA crossover**, fast 20, slow 50, capital 100000, **Fee per fill (bps)** 10,
+   **Slippage per fill (bps)** 5. Click **Run backtest**.
+4. **Cost stress:** change only fee to **20** and slippage to **10**. Click **Run backtest**. Then restore 10 / 5.
+5. **Walk-forward:** with the same configuration, set the walk-forward split to **2020-01-01** and run it.
+   In-sample is 2015–2019 and out-of-sample is 2020; each is an independent backtest.
+6. Optional, if time allows: **Simulate return paths** (300 paths, horizon 252, seed 42, block size 5).
 
-| Run | Strategy return | Buy & hold | Max drawdown | Sharpe | PSR* | Closed trades | Fees + slippage |
+**Expect** (computed 2026-11-21 through `POST /api/backtest` and `/api/monte-carlo` on a fresh demo
+workspace; they match demo-backend's figures. Synthetic random walk, so this is not a strategy result):
+
+| Run | Strategy return | Buy & hold | Max drawdown | Sharpe | PSR | Closed trades | Win rate |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1× costs (10 / 5 bps) | −36.9% | +26.1% | −39.5% | −1.37 | 0.024 | 8 | 1,204 + 602 |
-| 2× costs (20 / 10 bps) | −38.4% | +25.9% | −40.7% | −1.44 | 0.018 | 8 | 2,381 + 1,191 |
+| Full 2015–2020, 10 / 5 bps | −52.5% | +33.8% | −55.7% | −0.79 | 0.025 | 20 | 15% |
+| Full 2015–2020, 20 / 10 bps | −55.3% | +33.6% | −58.1% | −0.85 | 0.016 | 20 | 15% |
+| Walk-forward in-sample 2015–2019 (10 / 5) | −41.4% | +24.7% | −49.3% | −0.69 | 0.058 | 15 | 7% |
+| Walk-forward out-of-sample 2020 (10 / 5) | −17.5% | +9.0% | −19.2% | −1.23 | 0.098 | 4 | 25% |
 
-Monte Carlo (1× costs, seed 42): median terminal ≈ 82,000, p05 ≈ 63,600, p95 ≈ 101,900, resampled loss frequency 0.9.
+Fees plus slippage over the full window: about 4,388 at 10 / 5 bps and 8,549 at 20 / 10 bps (initial
+capital 100,000). Monte Carlo (10 / 5, seed 42): median terminal ≈ 89,000, p05 ≈ 72,000, p95 ≈ 110,000,
+resampled loss frequency 0.8.
 
-\*`probabilistic_sharpe` is returned by the engine with the note "single configuration; not deflated for
-the number of configurations tried". **Mention it only if the build on the day displays it** (the UI
-change was requested from `demo-ui`).
+**Say:** "No edge, as expected: the rule loses to buy-and-hold, and the probabilistic Sharpe ratio is about
+2%, meaning roughly a 2% chance the true Sharpe is above zero. That figure is for one configuration and is not
+deflated for trials. Doubling costs makes it worse, from −52% to −55%. The walk-forward split shows the same
+story in both halves, so there is no hidden period where it 'works'. With only 20 trades, below the 30-trade
+low-sample threshold, none of these numbers would be trustworthy even on real data. Fills happen at the next
+open after a close signal. The Monte Carlo loss frequency is a resampling statistic, not a probability of
+future loss."
 
-**Say:** "We fixed this configuration before the presentation: default SMA 20/50, default costs. We are
-not tuning it on stage, because every extra configuration I try is an uncorrected multiple test. The only
-thing I change is cost. Doubling fees and slippage roughly doubles the cost drag, and the result gets
-worse. Fills happen at the next open after a close signal, never on the same bar. The Monte Carlo
-resamples blocks of this strategy's own returns with a fixed seed. Its loss frequency is a resampling
-statistic, not a probability of losing money in future. And this series is a synthetic random walk; it
-verifies the interface, not a strategy. On a zero-drift walk, losing to buy-and-hold is exactly what we
-should expect."
-
-**Fallback A (Streamlit):** in the tab prepared before the session (step 2 of "Before the session"), open
-**Charts, backtests and Monte Carlo**. **Local instrument** is `SYNTHETIC:LAB_QA_ONLY` with the same
-synthetic banner. Use the same clicks (**Run backtest**, then **Simulate return paths**) and the same
-1× → 2× cost change. Reference values on that QA series: −75.2% → −75.8% total return, buy and hold
-+14.4%, Sharpe −7.14 → −7.27, 8 trades.
-**Fallback B:** the `backtest.json` and screenshots in the pack. If time is short, do only beat 1 and
-the 2× cost rerun.
+**Fallback A (Streamlit):** the tab prepared before the session (`SYNTHETIC:LAB_QA_ONLY`, a different synthetic
+series) shows the same mechanics with **Run backtest**, the 1× → 2× cost change, and **Simulate return paths**.
+Don't quote the table above for it.
+**Fallback B:** `backtest.json` and the screenshots in the pack. If time is short, do only the framing,
+the 10 / 5 run and the 2× rerun.
 
 ## Step 8: Close (7:15–7:30)
 
@@ -266,5 +265,5 @@ and replayable. Happy to take questions."
 | 4 Saved result and audit | 2:45–3:45 | no |
 | 5 Outcomes | 3:45–4:30 | yes, narrate from slide 12 |
 | 6 Policies | 4:30–5:30 | use only the pre-saved comparison |
-| 7 Strategy lab and cost stress | 5:30–7:15 | do only the 20 s Next.js beat |
+| 7 Strategy lab: random-walk sanity check, cost stress, walk-forward | 5:30–7:15 | drop walk-forward and Monte Carlo |
 | 8 Close | 7:15–7:30 | no |

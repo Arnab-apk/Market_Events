@@ -49,7 +49,7 @@ The user requested coordination with the Understanding Herdr tab, technical indi
 
 `compute_technicals(observations, decision_time, company_id) -> TechnicalSnapshot` is pure local computation. Snapshot fields are decision_time, company_id, values, missing, stale, observation_ids, history_bars, required_history, interpretation and definition_version. `AnalysisRun.technicals` stores the optional snapshot; indicators do not change the existing numerical event score. Cutoffs require both observation timestamp and availability; insufficient or ambiguous history stays explicit. Quant documents keys, seeding and warm-up conventions in its module.
 
-`Settings.universe` selects `demo` or `live`. Live instrument IDs use `LIVE:NSE:<symbol>`; benchmark is `LIVE:NSE:NIFTY50`. Synthetic configurations and reviewed exposure assumptions must not silently become live mappings. `configs/live_universe.json` is an object with version, source and instruments (five equities plus benchmark). `get_live_universe(settings_or_root) -> list[dict]` reads metadata without network calls. Instrument records include instrument_id, name, provider_instrument_key, exchange, currency, unit and source; provider keys are resolved against the provider master, never guessed.
+`Settings.universe` selects `demo` or `live`. Live instrument IDs use `LIVE:NSE:<symbol>`; benchmark is `LIVE:NSE:NIFTY50`. Synthetic configurations and reviewed exposure assumptions must not silently become live mappings. `configs/live_universe.json` is an object with version, source and instruments: five equities plus the benchmark, and since 2026-11-21 also `LIVE:MCX:CRUDEOIL` (see the final section). `get_live_universe(settings_or_root) -> list[dict]` reads metadata without network calls. Instrument records include instrument_id, name, provider_instrument_key, exchange, currency, unit and source; provider keys are resolved against the provider master, never guessed.
 
 `Settings.live_data` contains provider='upstox', access_token (SecretStr excluded from snapshots), timeout_seconds=20, min_request_interval_seconds=0.25, max_requests=30 and news_max_pages=3. Environment lookup prefers `UPSTOX_ANALYTICS_TOKEN`, then `UPSTOX_ACCESS_TOKEN`. Tokens remain local; the UI reports configuration presence without claiming a verified connection.
 
@@ -62,3 +62,50 @@ Coordinator integration additions: `exporting.py` resolves the union of saved ma
 Core/UI checkpoint before the provider adapter is available: 242 offline tests passed in 13.54s; repository Ruff check passed and format-check reported 38 formatted files. The original three-family replay, outcomes and export CLI smoke passed. Local Streamlit served HTTP 200 and health `ok` at 127.0.0.1:8501. No automated browser was available, so rendered/mobile/screen-reader behaviour and real-account connectivity were not verified. This checkpoint does not certify the pending live-data adapter.
 
 Final extension checkpoint supersedes the pending-adapter status: 270 offline tests passed in 18.53s; Ruff check and 40-file format-check passed. Actual adapter parsing/storage/pipeline integration is exercised with HTTP transports mocked, including preserved refresh timestamps, valid LIVE news IDs, separate model actions and Settings/Path metadata reads. The real metadata/UI smoke made zero network requests or analysis writes. Actual provider/account connectivity and browser rendering remain unverified.
+
+## Live commodity, display fields and walk-forward (2026-11-21)
+
+These additions are additive. No existing function, route, field or file was renamed or removed. Current suite: 561 tests passed.
+
+**Live universe and rules.** `configs/live_universe.json` (version `live-nse-mcx-v2`) contains five equities
+(`LIVE:NSE:ASIANPAINT`, `BERGEPAINT`, `PIDILITIND`, `INDIGO`, `RELIANCE`), the benchmark `LIVE:NSE:NIFTY50`, and
+`LIVE:MCX:CRUDEOIL` (`market_family` commodity, `underlying_symbol` CRUDEOIL). `configs/live_exposure_rules.json`
+(version `live-reviewed-v1`) is an object with `provenance`, `rules[]` (`ExposureRule` records) and
+`reviewed_without_rule[]` (`{company_id, commodity_id, reviewed_at, reason}`). The rules are Asian Paints,
+Berger Paints and IndiGo at −1 on crude, with effective_at and known_at 2026-11-21, [S] secondary-press sources,
+and pending team review. Reliance (sign ambiguous) and Pidilite (unsourced) are reviewed without a rule, so they
+abstain. `config.read_exposure_rules(settings)` returns the live `rules` list (it also accepts a legacy plain
+list), and `config.read_exposure_review(settings)` returns `reviewed_without_rule` (empty for demo). Synthetic
+rules never become live mappings. In the live universe, the pipeline maps an extracted `MCX:CRUDEOIL` to
+`LIVE:MCX:CRUDEOIL`.
+
+**Provider sync.** `sync_live(dependencies, company_ids, lookback_days=550, include_news=True, now=None,
+include_commodities=True)` also fetches commodities linked by reviewed live rules. It reads `MCX.json.gz`, picks the
+earliest unexpired FUT on the underlying (ties fail), records the provider key as `contract_id` and the expiry
+as `contract_expiry`, and never rolls silently. A new contract is reported in `warnings[]`, and returns across
+contracts are unavailable. CLI: `sync-live --no-commodities`. API: `SyncRequest.include_commodities` (default
+true). All provider tests use mocked HTTP; real-account connectivity is unverified.
+
+**Readiness.** `pipeline.readiness(dependencies)` adds a row `{capability: "commodity_prices", name, configured,
+ready, reason}`. It is `configured` when rules exist and `ready` when matching commodity bars are stored.
+
+**Display-only API fields (never persisted).** Run objects in `/api/workspace` `runs[]`, the `POST /api/analyse`
+response and `/api/case/{id}` `.run` carry `plain_summary: str|null`, `plain_reasons: list[str]` and
+`score_formula: str|null`, built by `plain_language.py` from saved components, weights and features only.
+`assessment.explanation` stays verbatim as part of the immutable decision. `/api/workspace` `articles[]` carry
+`featured`, `story_role`, `story_order` and `story_title` from `configs/demo_story.json`, plus a top-level
+`demo_story[]`. These are empty or false outside the demo universe.
+
+**Comparisons.** `/api/comparisons` adds `extraction_agreement` (null without gold-labelled runs; labelled
+"Synthetic sanity check on authored articles, not a benchmark"; gold file `tests/fixtures/gold_labels.json`)
+and `policy_summary[].estimated_cost` / `cost_currency`. These are computed only for live groups whose every call
+reports both token counts and matches `configs/model_prices.json`, which ships with no rates, so they are null.
+
+**Strategy lab.** Backtest `metrics.probabilistic_sharpe` (may be null) comes with the assumption note "single
+configuration; not deflated for the number of configurations tried". `strategy_lab.walk_forward(bars, split_date,
+**parameters)` and the optional `walk_forward_split` on `POST /api/backtest` (start_date < split ≤ end_date,
+else 422) return `walk_forward: {split_date, in_sample, out_of_sample, assumptions[]}`. Each segment is an
+independent backtest of the same pre-chosen configuration, starting in cash with its own warm-up. The demo
+universe adds `SYNTHETIC:LAB_DEMO` (`configs/synthetic_lab.json`; 1,566 bars, 2015-01-01 to 2020-12-31, a seeded
+zero-drift random walk) to company lists for the lab only. It never enters event evidence.
+

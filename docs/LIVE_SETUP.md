@@ -2,7 +2,9 @@
 
 This guide covers the read-only real-data extension of Market Events. Technical indicators run locally on imported or synced daily OHLCV history. Article extraction uses the separately configured language models. Credentials belong in your local `.env`; do not paste them into the dashboard, chat, screenshots or research exports.
 
-**Integration status:** local indicators, typed snapshots, universe-aware pipeline, readiness checks, CLI entry points and the Upstox adapter are implemented and verified offline. The final combined suite passed **270 tests in 18.53 seconds**; full Ruff checks passed and all **40 Python files** passed the format check. Actual-adapter integration exercises HTTP parsing, mappings, storage, technical calculations, explicit news analysis, refresh identity and CLI missing-token handling with mocked transport. No real account connectivity has been verified.
+**Status on 21 November 2026:** the live universe now includes MCX crude oil, with reviewed, cutoff-dated exposure rules and a commodity readiness check (sections 6 and 11). All provider tests still use mocked HTTP: **no real Upstox account connection has been verified**, and the MCX master field names follow the Upstox documentation but have not been checked against a real response. The current suite passes **561 tests**.
+
+**Integration status (24 October 2026 checkpoint):** local indicators, typed snapshots, universe-aware pipeline, readiness checks, CLI entry points and the Upstox adapter are implemented and verified offline. The final combined suite passed **270 tests in 18.53 seconds**; full Ruff checks passed and all **40 Python files** passed the format check. Actual-adapter integration exercises HTTP parsing, mappings, storage, technical calculations, explicit news analysis, refresh identity and CLI missing-token handling with mocked transport. No real account connectivity has been verified.
 
 ## 1. Free provider choice
 
@@ -67,7 +69,7 @@ Opening a page, reading the universe metadata or changing filters does not trigg
 1. Select the **live** data universe. Model mode is separate; technical analysis does not require live model mode.
 2. Open the connection/data-sync view. Check that the provider credential is configured. This is a presence check, not a successful login claim.
 3. Choose a live company. Start with one company to keep the first fetch easy to inspect.
-4. Explicitly sync daily history. The default request is 550 calendar days, normally enough for the current 50-bar maximum minimum warm-up if the provider supplies sufficient sessions. The adapter also requests the configured benchmark. News is optional.
+4. Explicitly sync daily history. The default request is 550 calendar days, normally enough for the current 50-bar maximum minimum warm-up if the provider supplies sufficient sessions. The adapter also requests the configured benchmark (Nifty 50). If the company has a reviewed crude rule, it also fetches the near-month MCX crude future (on by default; CLI `--no-commodities` or API `include_commodities: false` turns it off). News is optional.
 5. Inspect added-record counts, requested instruments, provider-resolved keys, warnings and errors. Empty/partial/failed responses remain visible.
 6. Open technical analysis, select the same live company and submit a current offset-aware cutoff. Review history coverage, missing/stale status, values and interpretations.
 7. To analyse articles, configure both model roles, select live model mode, and use the separate synced-news analysis action. The backend batch defaults to ten unique requested articles, with explicit skipped results beyond its configured limit.
@@ -102,7 +104,38 @@ The selected universe controls company mappings and eligible input collections. 
 
 The adapter uses the local [live universe configuration](../configs/live_universe.json) to select the pilot instruments. Provider keys are discovered against the current instrument master during an explicit sync rather than guessed from names or copied from synthetic IDs. The company selector excludes benchmark records.
 
-Synthetic commodity exposure assumptions are not copied into the live universe. Optional reviewed real exposure rules belong in `configs/live_exposure_rules.json`; the default live rule collection is empty. Missing commodity/exposure evidence therefore causes the existing honest abstention. The live benchmark supplies broad-market context rather than the synthetic demonstration's conceptual sector benchmarks.
+### Live universe (`configs/live_universe.json`, version `live-nse-mcx-v2`)
+
+| Instrument | Role |
+| --- | --- |
+| `LIVE:NSE:ASIANPAINT`, `LIVE:NSE:BERGEPAINT`, `LIVE:NSE:PIDILITIND`, `LIVE:NSE:INDIGO`, `LIVE:NSE:RELIANCE` | Five equities (company pickers list only these) |
+| `LIVE:NSE:NIFTY50` | Benchmark for every live equity (broad market, not a sector index) |
+| `LIVE:MCX:CRUDEOIL` | Commodity: MCX crude, near-month future |
+
+**Contract handling.** During an explicit sync, `live_data` reads the MCX instrument master (`MCX.json.gz`)
+alongside the NSE master and picks the earliest unexpired crude future; ties fail. That contract's provider
+key is recorded as each bar's `contract_id`, with `contract_expiry`. There is no silent roll. A later sync
+that resolves a new contract stores it as a second contract, and the report warns about the roll. Returns
+across two contracts are unavailable (fail closed). The extraction prompt names crude as `MCX:CRUDEOIL`; in
+the live universe the pipeline maps this to `LIVE:MCX:CRUDEOIL`, while demo IDs are unchanged.
+
+### Live exposure rules (`configs/live_exposure_rules.json`, version `live-reviewed-v1`)
+
+| Company | Crude rule | Status |
+| --- | --- | --- |
+| Asian Paints, Berger Paints | direction −1 (crude-linked raw materials are an input cost) | **Pending review by the project team** |
+| InterGlobe Aviation (IndiGo) | direction −1 (aviation fuel is a major operating cost) | **Pending review by the project team** |
+| Reliance Industries | no rule: sign ambiguous (refining and upstream) | reviewed without rule, so it abstains |
+| Pidilite Industries | no rule: not yet sourced | reviewed without rule, so it abstains |
+
+Each rule gives a direction only, with no magnitude. Sources are **[S] secondary press commentary**
+(Upstox News for paints, Business Standard for IndiGo), used for motivation and not empirically
+validated. The direction was proposed by an AI assistant and must be confirmed against annual-report
+cost-of-materials notes. `effective_at` and `known_at` are both **2026-11-21**, the review date. Because
+evidence needs `known_at ≤ cutoff`, **any real article analysed at a cutoff before 21 November 2026
+abstains on a commodity-disruption event** ("Missing or ambiguous mandatory reviewed exposure"). This is
+intended: the rule did not exist then. Synthetic demo rules (`configs/exposure_rules.json`) never apply to
+`LIVE:` instruments.
 
 ## 7. Availability, refreshes and reproducibility
 
@@ -157,16 +190,33 @@ Global `--root`, `--database` and `--universe` options precede the subcommand. `
 | Stale technicals | Sync newer completed sessions or investigate provider coverage; no forward fill is applied |
 | Revision conflict | Review the changed source data; saved immutable bars are not overwritten |
 | News analysis fails | Inspect model IDs, model server, budgets and call traces; sync alone does not configure a model |
-| Commodity case abstains | Supply reviewed real exposure and compatible commodity observations; synthetic assumptions are intentionally excluded |
+| Commodity case abstains | Check the cutoff is on or after 2026-11-21 (rule `known_at`), the company has a rule (Reliance and Pidilite don't), crude bars were synced with an available time before the cutoff, and no contract roll falls inside the return window |
 
 ## 10. Implementation and verification boundaries
 
 - [Technical calculations](../src/market_events/technicals.py) define seeds, periods, warm-ups, stale handling and source references.
-- [The live provider adapter](../src/market_events/live_data.py) exposes `get_live_universe(settings_or_root)` plus `sync_live(dependencies, company_ids, lookback_days=550, include_news=True, now=None)`.
+- [The live provider adapter](../src/market_events/live_data.py) exposes `get_live_universe(settings_or_root)` plus `sync_live(dependencies, company_ids, lookback_days=550, include_news=True, now=None, include_commodities=True)` and `sync_historical(dependencies, company_ids, start_date, end_date, now=None)` (studies end 2020-12-31).
 - [Configuration](../src/market_events/config.py) excludes credentials and selects the universe.
-- [Pipeline](../src/market_events/pipeline.py) saves technical context, enforces namespaces and exposes offline readiness/separate batch analysis.
+- [Pipeline](../src/market_events/pipeline.py) saves technical context, enforces namespaces, maps `MCX:CRUDEOIL` to `LIVE:MCX:CRUDEOIL` in the live universe, and exposes offline readiness (including commodity coverage) and separate batch analysis.
 - [Full workflow and feature guide](archive/planning/PROTOTYPE_WORKFLOW_AND_FEATURES.md) explains the existing event pipeline and outcome interpretation.
 
 Automated indicator tests use independently checkable numerical examples and boundary cases. Provider tests use mocked response payloads, including failures; passing them does not establish actual account connectivity. The final offline checkpoint on 24 October 2026 was **270 passed in 18.53 seconds**, with full Ruff and 40-file format checks passing. Replay demo, outcomes, exports, technicals and readiness CLI smoke checks passed. The actual-adapter metadata UI smoke exposed five equity choices with zero network requests or evidence writes; the local Streamlit service at `127.0.0.1:8501` returned healthy status. Rendered-browser, mobile and screen-reader behaviour remain unverified. Run the full suite with `.\.venv\Scripts\python.exe -m pytest -q`.
 
 This is a local end-of-day research application. It is not an intraday streaming service, automatically calibrated prediction model, corporate-action adjustment service or brokerage execution system. Exchange-calendar completeness and held-out real-data research quality still require separate evaluation.
+
+## 11. Readiness and web API fields for live data
+
+All of these are offline reads or explicit actions. None of them tests connectivity.
+
+- **Readiness row `commodity_prices`** (in `/api/workspace` `readiness[]` and `market_events readiness`).
+  It is `configured` when reviewed live rules exist and `ready` when commodity bars for those rules are
+  stored. The `reason` names the bar count, last date, contract(s), rule count and the companies reviewed
+  without a rule (Reliance, Pidilite). With several stored contracts, it warns that returns across a roll
+  are unavailable.
+- **`POST /api/sync/live`** accepts `include_commodities` (default `true`). The report's `universe[]`
+  can include `{instrument_id: "LIVE:MCX:CRUDEOIL", market_family: "commodity", contract_id,
+  contract_expiry, provider_trading_symbol, mapping_source, …}`, and `warnings[]` may report a contract roll.
+- **`POST /api/sync/historical`** downloads candles only, with dates capped at 2020-12-31, for the strategy lab.
+- `read_companies` and the company pickers still list equities only. Commodities appear only through
+  exposure rules, sync reports and readiness.
+

@@ -40,7 +40,7 @@ No reference in this document was written from memory alone. Each one turned up 
 - **RouteLLM.** Ong, I. et al. (2025). *RouteLLM: Learning to Route LLMs with Preference Data.* ICLR 2025. arXiv:2406.18665. https://arxiv.org/abs/2406.18665 **[V]**. A router trained on preference data picks a strong or weak model per query and reports more than 2× cost reduction without losing quality.
 - **Cascade routing.** Dekoninck, J., Baader, M., Vechev, M. (2025). *A Unified Approach to Routing and Cascading for LLMs.* ICML 2025, PMLR 267:12987–13010. arXiv:2410.10347. https://arxiv.org/abs/2410.10347 **[V]**. Its key finding is that a good quality estimator matters most. That is the point to emphasise, because this project's estimator is deterministic span verification.
 
-**How this maps to the three policies.** (`SYSTEM_ARCHITECTURE.md` §6; `pipeline.py` lines 155–165)
+**How this maps to the three policies.** (`SYSTEM_ARCHITECTURE.md` §6; `pipeline.py` lines 179–188)
 
 | Policy | Literature analogue | Difference |
 | --- | --- | --- |
