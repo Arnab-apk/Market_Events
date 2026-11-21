@@ -100,7 +100,18 @@ The bundled exposure rules (`configs/exposure_rules.json`) are explicitly *"Conc
 - White, H. (2000). *A Reality Check for Data Snooping.* Econometrica 68(5), 1097–1126. doi:10.1111/1468-0262.00152 **[V]**.
 - Künsch, H. R. (1989). *The Jackknife and the Bootstrap for General Stationary Observations.* Annals of Statistics 17(3), 1217–1241. doi:10.1214/aos/1176347265 **[V]**. The theoretical basis for the moving-block bootstrap that `strategy_lab.monte_carlo` uses.
 
-**Current implementation** (`strategy_lab.py`): it offers buy-and-hold plus SMA/EMA crossover, RSI reversion and MACD rules, next-open fills, per-fill fees, adverse slippage, and a seeded moving-block bootstrap. It reports an annualised Sharpe from sample deviation with a zero risk-free rate. Nothing records **how many configurations** a user tried, and there is no PSR, DSR, PBO or out-of-sample split. An on-stage parameter tweak is therefore an uncorrected multiple test. The existing assumption notes are honest, but they do not quantify this.
+**Current implementation** (`strategy_lab.py`; updated 2026-11-21 after the delivered changes). The lab offers buy-and-hold plus SMA/EMA crossover, RSI reversion, MACD crossover and Bollinger reversion rules, next-open fills, per-fill fees, adverse slippage, and a seeded moving-block bootstrap. It reports an annualised Sharpe from sample deviation with a zero risk-free rate.
+
+Delivered since the first version of this brief:
+
+- **Probabilistic Sharpe ratio: delivered.** `probabilistic_sharpe()` (Bailey & López de Prado) is returned as `metrics.probabilistic_sharpe` and shown beside Sharpe in the web lab. It is P(true per-session Sharpe > 0) given n, skewness and kurtosis. **Limit:** it covers a single configuration. It is *not* deflated for the number of configurations tried, so it is not a DSR. Both the result's assumption notes and the UI card say so.
+- **Walk-forward split: delivered, but only as a single split.** `walk_forward()` runs one fixed, pre-chosen configuration independently on an in-sample segment (before `split_date`) and an out-of-sample segment (from `split_date`). Each segment starts in cash with its own warm-up. **Limits:** it is one split, not a rolling or anchored walk-forward. No parameters are optimised in-sample, so it tests stability, not a tuning procedure. It is reachable through the backtest API (`walk_forward_split`); at the time of this update nothing in `web/` calls it. Its own notes say "a single split is a robustness check, not proof of a persistent edge".
+- **Longer synthetic lab series: delivered.** `SYNTHETIC:LAB_DEMO` now covers 2015-01-01 to 2020-12-31 (1,566 sessions). **Limit:** it is an authored, seeded, zero-drift random walk. Any backtest, PSR or walk-forward result on it is a mechanics check that should show *no* edge, and it is not evidence for or against any strategy.
+
+**Still missing:**
+- Nothing records **how many configurations** a user tried, so an on-stage parameter tweak remains an uncorrected multiple test.
+- There is no DSR, PBO/CSCV, rolling walk-forward, or White/Hansen test.
+- The demo therefore relies on the configuration being fixed in advance (stated in `docs/presentation/DEMO_SCRIPT.md`).
 
 ### 1.7 Evaluation metrics for extraction quality
 
@@ -147,17 +158,19 @@ Phrase it as "to our knowledge, based on a limited literature search". Do **not*
 
 ## 3. Gap analysis versus the current implementation
 
-| # | Area | Current state (verified in code/docs) | Gap | Severity for viva |
-| --- | --- | --- | --- | --- |
-| G1 | Extraction quality | Grounding and schema validation enforced; no gold labels; no P/R/F1 (`DECISIONS.md`: "future work") | No quantitative extraction metric at all, even on synthetic data | **High**: examiners will ask "how good is the extraction?" |
-| G2 | Cascade evaluation | Calls, tokens and latency per policy; replay/live split; no cost model | No cost weighting, so `slm_*` savings cannot be shown even in principle; no filter-recall metric | High |
-| G3 | Cascade design | SLM only filters; LLM always extracts; `llm_only` makes 2 LLM calls | No SLM-first-extract-then-escalate policy (the FrugalGPT analogue); gate is not learned | Medium (future work) |
-| G4 | Outcome methodology | Market-adjusted 5-session return; long-only measurement; single horizon; no tests | No estimation-window CAR, CAAR, BMP or sign test; horizon sensitivity missing | Medium: explain, don't fix |
-| G5 | Score versus outcome framing | Score includes the reaction-day excess return already seen at cutoff | Risk of sounding circular if not framed as "reaction + channel → later drift" | Medium (docs-only fix) |
-| G6 | Parametric look-ahead | Data and revision look-ahead handled; model knowledge not tested | No anonymisation or pre/post-knowledge-cutoff test | Medium (explain) |
-| G7 | Backtest overfitting | Single-config Sharpe; seeded block bootstrap; honest notes | No PSR/DSR, no trial count, no out-of-sample split | Medium |
-| G8 | Exposure evidence | Synthetic rules labelled as such; live rules absent by default | No empirical or annual-report basis; no sign-ambiguous case (e.g. Reliance) | Low for demo, high for real research |
-| G9 | Data | All bundled articles and prices synthetic; real adapter mocked | No real dated corpus with permissions | Known and disclosed; future work |
+Status as of 2026-11-21, after the delivered and committed changes. "Partly addressed" means a mechanism now exists, but the research gap behind it remains.
+
+| # | Area | Current state (verified in code/docs) | Remaining gap | Status | Severity for viva |
+| --- | --- | --- | --- | --- | --- |
+| G1 | Extraction quality | Grounding and schema validation enforced. **Delivered:** `tests/fixtures/gold_labels.json` (35 synthetic articles, single annotator) and `extraction_agreement()`, which reports per-policy filter recall/precision, field accuracy, validation rates and abstention rate in `/api/comparisons` and the Comparisons view, labelled "synthetic sanity check, not a benchmark". | The labels cover authored synthetic text from one annotator with no inter-annotator agreement. In replay the scores measure the recorded fixtures (the pipeline), not model quality. There is still no real-data gold set, span-level F1 or Cohen's κ. | Partly addressed | Medium: now answerable ("we measure it; here is the mechanism"), but no quality claim is possible |
+| G2 | Cascade evaluation | Calls, tokens, latency and model tier per policy; replay/live split. **Delivered:** an `estimated_cost` field from optional `configs/model_prices.json`, plus filter recall via G1. | `model_prices.json` ships with **no rates**, and replay records no tokens, so `estimated_cost` is null everywhere until real rates and live runs exist. The archived live comparison still shows no call saving (8/9/9). Cost savings remain unmeasured. | Partly addressed (mechanism only) | High if asked "does the cascade save money?": the honest answer is "not measured yet" |
+| G3 | Cascade design | SLM only filters; LLM always extracts; `llm_only` makes 2 LLM calls | No SLM-first-extract-then-escalate policy (the FrugalGPT analogue); the gate is not learned | Open | Medium (future work) |
+| G4 | Outcome methodology | Market-adjusted 5-session return; long-only measurement; single horizon; no tests. Framing delivered in the presentation docs. | No estimation-window CAR, CAAR, BMP or sign test; no horizon sensitivity | Open (explained, not fixed) | Medium: explain, don't fix |
+| G5 | Score versus outcome framing | Score includes the reaction-day excess return already seen at the cutoff. **Delivered:** "reaction + channel → later drift" framing in `DEMO_AND_VIVA.md` and the slides. | None in the docs. Any new slide must keep the framing. | Addressed (docs) | Low |
+| G6 | Parametric look-ahead | Data and revision look-ahead handled; model knowledge not tested. **Delivered:** "three kinds of look-ahead" slide and viva answer. | No anonymisation or pre/post-knowledge-cutoff test | Open (explained) | Medium (explain) |
+| G7 | Backtest overfitting | **Delivered:** PSR (single configuration, not deflated), one fixed-configuration in-sample/out-of-sample split (API only), a 2015–2020 synthetic random-walk series, and a 2× cost-stress beat in the demo script. | No record of the number of configurations tried; no DSR, PBO/CSCV, rolling walk-forward or Reality Check/SPA. Walk-forward is not yet in the web UI. The demo series is a random walk, so it carries no evidence. | Partly addressed | Medium |
+| G8 | Exposure evidence | Synthetic demo rules labelled as such. **Delivered:** `LIVE:MCX:CRUDEOIL` near-month readiness in `configs/live_universe.json`, and `configs/live_exposure_rules.json` with **direction-only** rules (−1) for Asian Paints, Berger Paints and IndiGo. Reliance (sign ambiguous) and Pidilite (unsourced) are recorded as reviewed *without* a rule, so they abstain. A contract roll fails closed instead of splicing contracts. | The rules are **pending team review**, are sourced from secondary press only, and claim no magnitude or empirical validation. `known_at` = 2026-11-21, so they cannot support any decision dated before that (correctly), and no retrospective evaluation of the crude channel is possible. The MCX path is **offline-tested only** (mocked HTTP), with no real account sync. There is no annual-report or estimated-beta basis, and no automatic contract rolling. | Partly addressed | Low for demo; high for any real-data claim |
+| G9 | Data | All bundled articles and prices synthetic; real adapter mocked | No real dated corpus with permissions | Open | Known and disclosed; future work |
 
 ---
 
@@ -165,25 +178,48 @@ Phrase it as "to our knowledge, based on a limited literature search". Do **not*
 
 ### (a) Small, safe items before 1 December
 
-These are additive, labelled honestly, and change no existing saved decision. Each has a one-line request under **Cross-agent requests** in `docs/PRESENTATION_PLAN.md`.
+These are additive, labelled honestly, and change no existing saved decision. Each had a one-line request under **Cross-agent requests** in `docs/PRESENTATION_PLAN.md`.
 
-1. **Synthetic gold labels plus an agreement report** (G1, G2) → `demo-backend`. A fixture of expected relevance, `event_type`, `company_id` and `commodity_id` for the 35 bundled synthetic articles (`tests/fixtures/articles.jsonl`), plus a read-only `extraction_agreement()` in `experiments.py`. It reports per-policy filter recall and precision, field accuracy, validation status rates and abstention rate, all labelled "synthetic sanity check on authored articles, not a benchmark".
-2. **Estimated cost per policy** (G2) → `demo-backend`. Optional `configs/model_prices.json` with per-1k input and output rates. `summarize_policies` adds `estimated_cost` for live groups with complete token usage only, and null otherwise.
-3. **Probabilistic Sharpe ratio plus trial disclosure** (G7) → `demo-backend`. Add PSR (Bailey & López de Prado; against SR* = 0, using skewness, kurtosis and n) to `run_backtest` output, with an assumption note: "single configuration; not deflated for the number of configurations tried".
-4. **Show the new fields** (G1, G2, G7) → `demo-ui`. Show PSR and the not-deflated note beside Sharpe. Show the agreement table and estimated cost on the policy-comparison view with their labels; hide them when unavailable.
-5. **Related-work and novelty slide** → `pitch-docs`. Use §1–2 here, citing only **[V]** entries.
-6. **"Three kinds of look-ahead" slide and viva answer** (G6) → `pitch-docs`.
-7. **Outcome definition and framing** (G4, G5) → `pitch-docs`. In `DEMO_AND_VIVA.md`: the outcome is a market-adjusted (beta = 1) next-open → 5th-close return, measuring post-cutoff drift. Market-model CAR with BMP testing is future work.
-8. **Commodity-exposure motivation slide** (G8) → `pitch-docs`. Paints and airlines, with ranges labelled "secondary press sources; the demo rules are synthetic". Add the Reliance sign-ambiguity example.
-9. **Cost-stress demo beat** (G7) → `pitch-docs`. Rerun the same pre-chosen backtest at 2× fees and slippage on stage, and say that the configuration was fixed in advance.
+**Status (2026-11-21):** all nine are delivered. For items 1–4 I checked the code. For items 5–9 I checked that the content is present in `docs/presentation/` and `docs/DEMO_AND_VIVA.md`, but did not review its wording line by line. The limits that remain are stated against each item.
+
+1. **Synthetic gold labels plus an agreement report** (G1, G2) → `demo-backend`. **Delivered.** `tests/fixtures/gold_labels.json` covers the 35 synthetic articles, and `extraction_agreement()` reports per-policy filter recall/precision, field accuracy, validation rates and abstention rate, labelled "synthetic sanity check, not a benchmark". *Limits:* single annotator with no κ; authored synthetic text; in replay it measures the recorded fixtures, not model quality.
+2. **Estimated cost per policy** (G2) → `demo-backend`. **Delivered as a mechanism.** `configs/model_prices.json` plus `estimated_cost`, computed only for live groups whose every call reports tokens and has a price entry. *Limits:* the file ships with no rates, and replay has no tokens, so the field is null in every current view. No cost saving has been measured.
+3. **Probabilistic Sharpe ratio plus trial disclosure** (G7) → `demo-backend`. **Delivered.** It is P(true per-session Sharpe > 0), with the note "single configuration; not deflated for the number of configurations tried". *Limit:* it is not a DSR, and the number of trials is not recorded.
+4. **Show the new fields** (G1, G2, G7) → `demo-ui`. **Delivered.** A PSR card with the not-deflated note; the agreement table; an estimated-cost column that is hidden while null.
+5. **Related-work and novelty slide** → `pitch-docs`. **Delivered** (`docs/presentation/SLIDES.md`, "to our knowledge" wording).
+6. **"Three kinds of look-ahead" slide and viva answer** (G6) → `pitch-docs`. **Delivered** (`SLIDES.md`, `DEMO_AND_VIVA.md`). The parametric look-ahead test itself remains future work.
+7. **Outcome definition and framing** (G4, G5) → `pitch-docs`. **Delivered** (market-adjusted framing in `DEMO_AND_VIVA.md`, `SLIDES.md`, `DEMO_SCRIPT.md` and `VIVA_QA.md`). The event-study upgrade remains future work.
+8. **Commodity-exposure motivation slide** (G8) → `pitch-docs`. **Delivered** (`SLIDES.md`, labelled "secondary press").
+9. **Cost-stress demo beat** (G7) → `pitch-docs`. **Delivered** (`DEMO_SCRIPT.md` step 7: 10/5 → 20/10 bps, configuration fixed in advance).
+
+Delivered beyond the original list, at the coordinator's and team's request:
+
+- **Walk-forward (G7).** One fixed-configuration in-sample/out-of-sample split through the backtest API. *Limits:* a single split, not rolling or anchored; no in-sample optimisation; not yet exposed in the web UI at this update.
+- **`SYNTHETIC:LAB_DEMO` extended to 2015–2020** (1,566 sessions). *Limit:* a seeded zero-drift random walk, useful only for mechanics.
+- **Live crude readiness (G8).** `LIVE:MCX:CRUDEOIL` (near-month, chosen explicitly at sync, fails closed on a roll) and direction-only `configs/live_exposure_rules.json` for Asian Paints, Berger Paints and IndiGo, with Reliance and Pidilite deliberately left without a rule. *Limits:* the rules are pending team review, rest on secondary sources, claim no magnitude, and have `known_at` = 2026-11-21. The path is offline-tested only (mocked HTTP), not run against a real account.
+
+**Still open before 1 December** (no request filed; only if time allows):
+- Have a team member actually review and sign off `live_exposure_rules.json` (or keep it labelled "pending review" on any slide that mentions it).
+- If walk-forward is mentioned on stage, show it from the API output or a prepared JSON, since the UI does not display it.
 
 ### (b) Future work, after the presentation
 
-1. **Real corpus.** A permitted, dated Indian news corpus (provider news, NSE corporate announcements) with a manifest, a 200–500 article gold set annotated by two people (report Cohen's κ), and a temporal pilot/test split.
+Items that are partly delivered now say what remains.
+
+1. **Real corpus.** A permitted, dated Indian news corpus (provider news, NSE corporate announcements) with a manifest, a 200–500 article gold set annotated by two people (report Cohen's κ), and a temporal pilot/test split. The synthetic gold-label mechanism (§4a-1) can be reused for this set unchanged.
 2. **Proper event study.** Market-model abnormal returns with a pre-event estimation window. CAR and CAAR at 1, 3, 5 and 10 sessions. BMP and sign tests. Sector versus Nifty 50 benchmarks. Optionally the IIMA four-factor model.
-3. **Cascade research.** Add `slm_extract_escalate`, where the SLM extracts and the deterministic validator acts as FrugalGPT's scorer, escalating to the LLM on failure. Compare against a learned router (RouteLLM / cascade routing) on cost per validated extraction and filter recall. Compare against a FinBERT-style encoder filter.
+3. **Cascade research.** Add `slm_extract_escalate`, where the SLM extracts and the deterministic validator acts as FrugalGPT's scorer, escalating to the LLM on failure. Compare against a learned router (RouteLLM / cascade routing) on cost per validated extraction and filter recall. Compare against a FinBERT-style encoder filter. The cost and recall reporting now exists (§4a-1, §4a-2). What is missing is real provider rates in `model_prices.json`, live runs with complete token counts, and a real gold set.
 4. **Parametric look-ahead tests.** Entity anonymisation ablation (Glasserman & Lin), pre- versus post-knowledge-cutoff splits, and chronologically consistent models if they are available.
-5. **Exposure estimation.** Build `live_exposure_rules.json` from annual-report raw-material disclosures, with `known_at` set to the filing date. Add rolling point-in-time betas of stock returns to crude and ATF as a cross-check. Model sign-ambiguous firms explicitly.
-6. **Overfitting control.** Log every backtest configuration tried in a session. DSR over that set, PBO via CSCV on parameter sweeps, walk-forward or out-of-sample splits, White's Reality Check or Hansen's SPA.
+5. **Exposure estimation.** `configs/live_exposure_rules.json` now exists, but it is direction-only, pending review and press-sourced. Next steps:
+   - Replace each rule's source with annual-report raw-material disclosures, with `known_at` set to the filing date. That would also permit earlier, point-in-time-valid decisions than the current 2026-11-21 date.
+   - Add rolling point-in-time betas of stock returns to crude and ATF as a cross-check and to justify magnitudes.
+   - Revisit Reliance (sign ambiguous) and Pidilite (unsourced), which currently abstain by design.
+   - Run the MCX sync against a real account.
+6. **Overfitting control.** PSR and one fixed-configuration split are done. Still to do:
+   - log every backtest configuration tried in a session;
+   - compute the DSR over that set;
+   - PBO via CSCV on parameter sweeps;
+   - **rolling or anchored** walk-forward (several splits) instead of a single split, with the split shown in the UI;
+   - White's Reality Check or Hansen's SPA.
 7. **Event-driven strategy evaluation.** Backtest the evidence labels themselves: direction-aligned holding, abstention as cash, plus risk-coverage curves for the abstention policy.
-8. **Engineering.** Exchange calendar and corporate-action adjustment, MCX contract rolling, and external sanity checks on FinBen or EDT tasks.
+8. **Engineering.** Exchange calendar and corporate-action adjustment; automatic MCX contract rolling (a roll currently fails closed rather than splicing contracts); external sanity checks on FinBen or EDT tasks.
