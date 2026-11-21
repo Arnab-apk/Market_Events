@@ -34,6 +34,32 @@ Rules for every agent:
 - If you need a change in someone else's area, append a request under **Cross-agent requests** below and continue.
 - Finish with a short report: files changed, checks run with results, known limitations.
 
+## Cleanup phase (started 2026-11-21, checkpoint commit e6e264e)
+
+Goal: a newcomer (examiner, teammate) can understand the codebase quickly. Behaviour must not change.
+- Same ownership as above. No renames of public functions, modules, API routes or file paths that other
+  code, tests, `docs/BUILD_CONTRACT.md` or the slides reference. No new dependencies. No commits.
+- Allowed: clearer docstrings/comments in plain English, section markers in long files, removing code
+  proven unused (grep the whole repo incl. tests and web), consolidating duplicated CSS, reorganising docs.
+- Gates: pytest count unchanged or higher and passing, ruff clean, `npm.cmd run check` and build pass,
+  Playwright walkthrough passes and screenshots look the same as before.
+- Order: code agents first; `pitch-docs` refreshes any file/line references in docs/presentation last.
+
+## UI phase: user-friendly, informative, professional (after cleanup)
+
+Goal: a first-time visitor understands what each screen shows, what every number means and what to
+do next, without a guide. It must look professional on a projector and work end to end.
+1. `research`: UX/usability audit → `docs/presentation/UX_AUDIT.md` (read-only; bugs go to Cross-agent requests).
+2. `demo-ui`: implement the audit + React Bits set (CountUp, Stepper, AnimatedContent/FadeContent,
+   ShinyText/GradientText on the title only; keep SpotlightCard and Aurora; one animated background max).
+   Vendor sources from the official repo into `web/app/_components/react-bits/` like the existing ones,
+   keep LICENSE, pin any new dependency to an exact version, honour `prefers-reduced-motion`.
+3. `demo-backend`: API additions the audit needs (e.g. plain-English result summary fields).
+4. `pitch-docs`: update DEMO_SCRIPT.md / slides to the new UI.
+Design rules: motion ≤ 400 ms and purposeful; numbers always land on the exact value; every metric
+has a one-line plain-English explanation; synthetic/replay status always visible; every empty or
+error state says what happened and what to do next; WCAG AA contrast in both themes.
+
 ## Acceptance gates
 
 - `.venv\Scripts\python.exe -m pytest -q` passes; `ruff check .` passes.
@@ -61,3 +87,7 @@ Rules for every agent:
 - [demo-backend → pitch-docs] Demo beat for steps 3–4, from the existing data: `syn-002` at 2026-01-12 12:00 UTC gives equity +0.40, crude leg −0.50, score 0.04, neutral with a conflict. The same article at 10:30 UTC (16:00 IST; after the equity close, before crude settles at 11:00 UTC) abstains with "Missing or stale mandatory commodity return". Contrasts: `syn-001` positive 0.40, `syn-005` abstain, `syn-004` irrelevant. The extraction-agreement table shows filter recall 1.0 and precision below 1 in replay, because gold labels mark the unconfirmed SpiceJet items irrelevant. Label it "synthetic sanity check, not a benchmark". Step 7 numbers come from `SYNTHETIC:LAB_DEMO`, an authored random walk: never present them as performance. — DONE (pitch-docs)
 - [demo-backend → coordinator] The Starlette TestClient deprecation is silenced narrowly in `tests/conftest.py`. The durable fix is to replace the dev dependency `httpx` with `httpx2` in `pyproject.toml` and reinstall. That file and the network install are outside demo-backend ownership.
 - [demo-ui → demo-backend] `assessment.explanation` prints raw floats and runs sentences together. Example: "neutral: evidence score 0.03999999035395829; coverage 1.00. Equity and exposure-adjusted commodity evidence disagree Score is deterministic…". It's shown verbatim under "Why this label" on stage. Please round the score (3 dp) and add the missing full stop. The UI does not rewrite backend text.
+- [coordinator → demo-ui] (UI phase) Show a "low sample size — fewer than 30 closed trades" warning beside Sharpe/PSR in the strategy lab (docs/research/BACKTEST_REVIEW.md #1).
+- [coordinator → demo-backend] (after cleanup) Add a walk-forward split for a fixed backtest configuration: in-sample vs out-of-sample metrics side by side via the existing backtest API, with tests (BACKTEST_REVIEW #2; synopsis objective).
+- [coordinator → demo-backend] (after cleanup, P2) Extend SYNTHETIC:LAB_DEMO to 2015-01-01…2020-12-31, still a labelled seeded random walk, updating tests (BACKTEST_REVIEW #3).
+- [coordinator → pitch-docs] Frame step 7 as a random-walk sanity check before showing −37%: no edge found, costs make it worse, PSR ≈ 2% (BACKTEST_REVIEW "How to present it").
