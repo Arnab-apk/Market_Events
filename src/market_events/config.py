@@ -123,5 +123,22 @@ def read_exposure_rules(settings: Settings) -> list[dict]:
     """
     if settings.universe == "demo":
         return read_config(settings.root, "exposure_rules.json")
+    document = _live_exposure_document(settings)
+    return document if isinstance(document, list) else document.get("rules", [])
+
+
+def _live_exposure_document(settings: Settings):
+    """The live rules file: a plain list of rules, or {version, rules, reviewed_without_rule}."""
     filename = settings.root / "configs" / "live_exposure_rules.json"
     return json.loads(filename.read_text(encoding="utf-8")) if filename.exists() else []
+
+
+def read_exposure_review(settings: Settings) -> list[dict]:
+    """Live companies reviewed and deliberately left WITHOUT a rule (for example sign-ambiguous).
+
+    Such companies abstain on commodity events. The demo universe has none.
+    """
+    if settings.universe == "demo":
+        return []
+    document = _live_exposure_document(settings)
+    return document.get("reviewed_without_rule", []) if isinstance(document, dict) else []

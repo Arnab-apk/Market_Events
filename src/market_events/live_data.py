@@ -29,6 +29,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 
+from .config import read_exposure_rules
 from .schemas import Article, MarketObservation, utc
 
 # ---------------------------------------------------------------------------
@@ -36,6 +37,7 @@ from .schemas import Article, MarketObservation, utc
 # ---------------------------------------------------------------------------
 
 MASTER_URL = "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz"
+MCX_MASTER_URL = "https://assets.upstox.com/market-quote/instruments/exchange/MCX.json.gz"
 API_URL = "https://api.upstox.com"
 IST = ZoneInfo("Asia/Kolkata")
 MAX_RESPONSE_BYTES = 32 * 1024 * 1024
@@ -64,14 +66,12 @@ def _universe_document(settings_or_root) -> dict:
             if (
                 not isinstance(item, dict)
                 or not isinstance(item.get("instrument_id"), str)
-                or not item["instrument_id"].startswith("LIVE:NSE:")
                 or item["instrument_id"] in identifiers
-                or item.get("exchange") != "NSE"
-                or item.get("market_family") not in {"equity", "benchmark"}
                 or not all(
                     item.get(key)
                     for key in ("name", "trading_symbol", "currency", "unit", "source")
                 )
+                or not (_valid_nse_instrument(item) or _valid_mcx_commodity(item))
             ):
                 raise ValueError
             identifiers.add(item["instrument_id"])
@@ -80,6 +80,33 @@ def _universe_document(settings_or_root) -> dict:
         return document
     except (OSError, ValueError, TypeError):
         raise ValueError("Cannot read a valid live universe configuration") from None
+
+
+def _valid_nse_instrument(item) -> bool:
+    return (
+        item["instrument_id"].startswith("LIVE:NSE:")
+        and item.get("exchange") == "NSE"
+        and item.get("market_family") in {"equity", "benchmark"}
+    )
+
+
+def _valid_mcx_commodity(item) -> bool:
+    """An MCX future whose contract is chosen explicitly at sync time (never rolled silently)."""
+    close = item.get("session_close_ist")
+    try:
+        hour, minute = (int(part) for part in str(close).split(":"))
+        valid_close = 0 <= hour < 24 and 0 <= minute < 60
+    except ValueError:
+        valid_close = False
+    return (
+        item["instrument_id"].startswith("LIVE:MCX:")
+        and item.get("exchange") == "MCX"
+        and item.get("market_family") == "commodity"
+        and item.get("contract_selection") == "near_month"
+        and isinstance(item.get("underlying_symbol"), str)
+        and bool(item["underlying_symbol"].strip())
+        and valid_close
+    )
 
 
 def get_live_universe(settings_or_root) -> list[dict]:
@@ -123,7 +150,7 @@ class _Reader:
             headers["Authorization"] = "Bearer " + self.settings.access_token.get_secret_value()
         self.last_request = time.monotonic()
         self.report["network_requests"] += 1
-        size_limit = MAX_MASTER_BYTES if url == MASTER_URL else MAX_RESPONSE_BYTES
+        size_limit = MAX_MASTER_BYTES if url in {MASTER_URL, MCX_MASTER_URL} else MAX_RESPONSE_BYTES
         try:
             with requests.get(
                 url,
@@ -195,6 +222,85 @@ def _discover(instrument, master):
     }
 
 
+def _expiry_date(value):
+    """Contract expiry as an IST date from epoch milliseconds or an ISO date string."""
+    if isinstance(value, bool):
+        raise ValueError
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value / 1000, timezone.utc).astimezone(IST).date()
+    if isinstance(value, str) and value.strip():
+        return date.fromisoformat(value.strip()[:10])
+    raise ValueError
+
+
+def _discover_contract(instrument, master, today):
+    """Resolve the near-month future: the earliest expiry on or after today's IST date.
+
+    Only MCX_FO futures (``instrument_type`` FUT) on the configured underlying symbol
+    are considered; options and other underlyings are ignored. Two contracts with the
+    same earliest expiry are ambiguous and fail. The chosen provider key becomes the
+    observation ``contract_id``, so a later roll appears as a second contract and
+    commodity returns fail closed instead of splicing contracts together.
+    """
+    candidates = []
+    for item in master:
+        if (
+            not isinstance(item, dict)
+            or item.get("segment") != "MCX_FO"
+            or item.get("exchange") != "MCX"
+            or item.get("instrument_type") != "FUT"
+            or item.get("underlying_symbol") != instrument["underlying_symbol"]
+        ):
+            continue
+        try:
+            expiry = _expiry_date(item.get("expiry"))
+        except (ValueError, TypeError, OverflowError, OSError):
+            continue
+        if expiry >= today:
+            candidates.append((expiry, item))
+    if not candidates:
+        raise _FetchError("MCX instrument master has no unexpired future for this underlying")
+    nearest = min(expiry for expiry, _ in candidates)
+    matches = [item for expiry, item in candidates if expiry == nearest]
+    if len(matches) != 1:
+        raise _FetchError("MCX instrument master has several near-month futures; none chosen")
+    key = matches[0].get("instrument_key")
+    if (
+        not isinstance(key, str)
+        or not key.startswith("MCX_FO|")
+        or len(key.split("|")) != 2
+        or not key.split("|")[1].strip()
+    ):
+        raise _FetchError("MCX instrument master returned an invalid instrument key")
+    return {
+        **instrument,
+        "provider_instrument_key": key,
+        "provider_name": matches[0].get("name"),
+        "provider_trading_symbol": matches[0].get("trading_symbol"),
+        "contract_id": key,
+        "contract_expiry": nearest.isoformat(),
+        "mapping_source": MCX_MASTER_URL,
+    }
+
+
+def _linked_commodities(settings, universe, selected):
+    """Commodities that reviewed live exposure rules link to the selected companies."""
+    try:
+        rules = read_exposure_rules(settings)
+    except (OSError, ValueError, AttributeError):
+        return []
+    linked = [
+        rule.get("commodity_id")
+        for rule in rules
+        if isinstance(rule, dict) and rule.get("company_id") in selected
+    ]
+    return [
+        identifier
+        for identifier in dict.fromkeys(linked)
+        if identifier in universe and universe[identifier]["market_family"] == "commodity"
+    ]
+
+
 def _data(payload):
     if (
         not isinstance(payload, dict)
@@ -257,8 +363,19 @@ def _news_article(item, fetched_at, existing):
 # ---------------------------------------------------------------------------
 
 
-def sync_live(dependencies, company_ids, lookback_days=550, include_news=True, now=None) -> dict:
+def sync_live(
+    dependencies,
+    company_ids,
+    lookback_days=550,
+    include_news=True,
+    now=None,
+    include_commodities=True,
+) -> dict:
     """Explicitly fetch selected equities, their benchmark and optional 7-day news.
+
+    With ``include_commodities``, commodities that reviewed live exposure rules link
+    to a selected company (for example MCX crude for the paint makers) are fetched
+    too, using the explicitly resolved near-month contract.
 
     All requests are GETs to fixed official hosts. There are no automatic retries;
     request count, interval, timeout, response size and news pages are bounded.
@@ -364,6 +481,43 @@ def sync_live(dependencies, company_ids, lookback_days=550, include_news=True, n
     observations = {item.observation_id: item for item in store.list_observations()}
     articles = {item.article_id: item for item in store.list_articles()}
     today = fetched_at.astimezone(IST).date()
+    commodities = (
+        _linked_commodities(dependencies.settings, universe, selected)
+        if include_commodities
+        else []
+    )
+    if commodities:
+        report["warnings"].append(
+            "Commodity bars use the near-month future resolved at this sync; a later roll "
+            "is a different contract, and returns across it stay unavailable."
+        )
+        try:
+            mcx_master = reader.get(MCX_MASTER_URL, authenticated=False)
+            if not isinstance(mcx_master, list):
+                raise _FetchError("Provider MCX instrument master must be a JSON list")
+        except _FetchError as exc:
+            for identifier in commodities:
+                error(identifier, "instrument_master", str(exc))
+            mcx_master = None
+        for identifier in commodities if mcx_master is not None else []:
+            try:
+                contract = _discover_contract(universe[identifier], mcx_master, today)
+            except _FetchError as exc:
+                error(identifier, "instrument_master", str(exc))
+                continue
+            previous = {
+                item.contract_id
+                for item in observations.values()
+                if item.instrument_id == identifier and item.contract_id
+            } - {contract["contract_id"]}
+            if previous:
+                report["warnings"].append(
+                    f"{identifier}: near-month contract is now {contract['contract_id']} "
+                    f"(expiry {contract['contract_expiry']}); earlier bars use "
+                    f"{', '.join(sorted(previous))}. Returns spanning contracts are unavailable."
+                )
+            resolved[identifier] = contract
+            report["universe"].append(contract)
     start, end = today - timedelta(days=lookback_days), today - timedelta(days=1)
     for identifier, instrument in resolved.items():
         key = quote(instrument["provider_instrument_key"], safe="")
@@ -391,7 +545,10 @@ def sync_live(dependencies, company_ids, lookback_days=550, include_news=True, n
                 )
                 if session >= today or session < start:
                     continue
-                close_time = datetime.combine(session, day_time(15, 30), IST)
+                hour, minute = (
+                    int(part) for part in instrument.get("session_close_ist", "15:30").split(":")
+                )
+                close_time = datetime.combine(session, day_time(hour, minute), IST)
                 observation = MarketObservation(
                     instrument_id=identifier,
                     market_family=instrument["market_family"],
@@ -404,6 +561,7 @@ def sync_live(dependencies, company_ids, lookback_days=550, include_news=True, n
                     volume=candle[5],
                     currency=instrument["currency"],
                     unit=instrument["unit"],
+                    contract_id=instrument.get("contract_id"),
                 )
                 old = observations.get(observation.observation_id)
                 if old:

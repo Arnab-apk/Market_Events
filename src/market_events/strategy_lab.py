@@ -473,6 +473,46 @@ def probabilistic_sharpe(returns: list[float], benchmark_sharpe: float = 0.0) ->
     return 0.5 * (1 + erf(z / sqrt(2)))
 
 
+def walk_forward(bars: list[MarketObservation], split_date: date, **parameters) -> dict:
+    """Split-sample check of one fixed configuration: in-sample vs out-of-sample.
+
+    Bars before ``split_date`` form the in-sample segment and bars on or after it the
+    out-of-sample segment. The same pre-chosen ``parameters`` (run_backtest keyword
+    arguments) are run independently on each segment: each starts in cash with its own
+    warm-up, so no out-of-sample bar informs the in-sample result or vice versa.
+    Nothing is optimised; this only shows whether a fixed rule behaves similarly on
+    unseen later data.
+    """
+    split = _date(split_date, "split_date")
+    rows = _validated_bars(bars)
+    segments = {
+        "in_sample": [row for row in rows if _session(row) < split],
+        "out_of_sample": [row for row in rows if _session(row) >= split],
+    }
+    result = {"split_date": split.isoformat()}
+    for name, segment in segments.items():
+        if not segment:
+            raise ValueError(f"The {name.replace('_', '-')} segment has no bars; move the split")
+        try:
+            backtest = run_backtest(segment, **parameters)
+        except ValueError as error:
+            raise ValueError(f"{name.replace('_', '-')} segment: {error}") from None
+        result[name] = {
+            "actual_start": _session(segment[0]).isoformat(),
+            "actual_end": _session(segment[-1]).isoformat(),
+            "bars": len(segment),
+            "metrics": backtest["metrics"],
+            "open_position": backtest["open_position"] is not None,
+        }
+    result["assumptions"] = [
+        "One fixed configuration chosen in advance; no parameter was tuned on either segment.",
+        "Each segment is an independent backtest that starts in cash with its own warm-up.",
+        "The out-of-sample segment begins on split_date; the in-sample segment ends before it.",
+        "A single split is a robustness check, not proof of a persistent edge.",
+    ]
+    return result
+
+
 def _finite_result(value) -> None:
     """Do not emit NaN/Infinity through the JSON interface, including on overflow."""
     if isinstance(value, float) and not isfinite(value):

@@ -15,7 +15,14 @@ from uuid import uuid4
 from .agents.event_agent import extract_event
 from .agents.explanation_agent import explain_assessment
 from .agents.filter_agent import filter_article
-from .config import Settings, load_settings, read_companies, read_config, read_exposure_rules
+from .config import (
+    Settings,
+    load_settings,
+    read_companies,
+    read_config,
+    read_exposure_review,
+    read_exposure_rules,
+)
 from .event_memory import classify_article
 from .exposure import find_exposure
 from .fusion import assess_evidence
@@ -198,6 +205,7 @@ def analyse_article(
             "evt-" + hashlib.sha256(ancestor.article_id.encode()).hexdigest()[:20]
         )
         run.event_id = run.extraction.event_id
+        _map_live_commodity(run.extraction, settings)
         rules = [ExposureRule.model_validate(r) for r in run.config_snapshot["exposure_rules.json"]]
         stage = time.perf_counter()
         run.exposure = find_exposure(run.extraction, rules, decision_time)
@@ -254,6 +262,84 @@ def analyse_article(
 # ---------------------------------------------------------------------------
 # Outcomes and the bundled synthetic demo
 # ---------------------------------------------------------------------------
+
+
+def _map_live_commodity(extraction, settings) -> None:
+    """In the live universe, map a synthetic-style commodity ID to its LIVE instrument.
+
+    The extraction prompt names crude as ``MCX:CRUDEOIL``; live bars and rules use
+    ``LIVE:MCX:CRUDEOIL`` (the same convention as ``NSE:X`` vs ``LIVE:NSE:X``). The
+    mapping happens only when that exact LIVE commodity is configured, and it is
+    recorded in the extraction reason. The demo universe is never changed.
+    """
+    commodity = extraction.commodity_id
+    if settings.universe != "live" or not commodity or commodity.startswith("LIVE:"):
+        return
+    from .live_data import get_live_universe
+
+    try:
+        live = {
+            row["instrument_id"]
+            for row in get_live_universe(settings)
+            if row.get("market_family") == "commodity"
+        }
+    except ValueError:
+        return
+    if "LIVE:" + commodity in live:
+        extraction.commodity_id = "LIVE:" + commodity
+        note = f"Commodity {commodity} mapped to live instrument LIVE:{commodity}."
+        extraction.reason = f"{extraction.reason} {note}".strip()
+
+
+def _commodity_readiness(dependencies, now) -> dict:
+    """Offline commodity coverage for cross-market evidence in the active universe."""
+    settings = dependencies.settings
+    live_universe = settings.universe == "live"
+    try:
+        rules = read_exposure_rules(settings)
+    except (OSError, ValueError):
+        rules = []
+    commodity_ids = sorted({rule.get("commodity_id") for rule in rules if isinstance(rule, dict)})
+    bars = [
+        row
+        for row in dependencies.storage.list_observations()
+        if row.market_family == "commodity"
+        and row.instrument_id in commodity_ids
+        and row.timestamp <= now
+        and row.available_at <= now
+    ]
+    contracts = sorted({row.contract_id for row in bars if row.contract_id})
+    without_rule = [item.get("company_id") for item in read_exposure_review(settings)]
+    if not rules:
+        reason = (
+            "No reviewed exposure rules for this universe; commodity events abstain"
+            if live_universe
+            else "No synthetic exposure rules configured"
+        )
+    elif not bars:
+        reason = (
+            f"{len(rules)} reviewed exposure rules for {', '.join(commodity_ids)}, but no "
+            "commodity bars yet; sync a linked company to fetch the near-month contract"
+        )
+    else:
+        latest = max(row.timestamp for row in bars).date().isoformat()
+        reason = (
+            f"{len(bars)} commodity bars through {latest}; contract(s) {', '.join(contracts)}; "
+            f"{len(rules)} reviewed exposure rules"
+        )
+        if len(contracts) > 1:
+            reason += "; several contracts stored, so returns spanning a roll are unavailable"
+    if without_rule:
+        reason += f". Reviewed without a rule (abstain): {', '.join(without_rule)}"
+    return {
+        "capability": "commodity_prices",
+        "name": "MCX crude near-month prices for cross-market evidence"
+        if live_universe
+        else "Synthetic crude prices for cross-market evidence",
+        "configured": bool(rules),
+        "ready": bool(rules) and bool(bars),
+        "reason": reason,
+    }
 
 
 def compute_outcomes(dependencies, run_id=None) -> list:
@@ -405,6 +491,7 @@ def readiness(dependencies) -> list[dict]:
                 else "Select live universe/mode and configure SLM_MODEL and LLM_MODEL"
             ),
         },
+        _commodity_readiness(dependencies, now),
     ]
 
 

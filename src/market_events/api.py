@@ -36,6 +36,7 @@ from .exporting import case_payload
 from .ingestion import import_articles, import_market_prices
 from .live_data import sync_historical, sync_live
 from .model_client import ModelError
+from .plain_language import describe_run
 from .pipeline import (
     Dependencies,
     analyse_article,
@@ -137,6 +138,28 @@ def create_app(root=None, settings=None):
     def namespace(identifier, config):
         return identifier.startswith("LIVE:") == (config.universe == "live")
 
+    def run_json(run):
+        """Saved run plus API-only plain-language fields (never persisted)."""
+        return {**run.model_dump(mode="json"), **describe_run(run)}
+
+    def demo_story(config):
+        """Featured demo-story entries by article ID; empty outside the demo universe."""
+        filename = config.root / "configs/demo_story.json"
+        if config.universe != "demo" or not filename.exists():
+            return {}
+        entries = read_config(config.root, "demo_story.json").get("articles", [])
+        return {entry["article_id"]: entry for entry in entries}
+
+    def article_json(article, story):
+        entry = story.get(article.article_id)
+        return {
+            **article.model_dump(mode="json"),
+            "featured": entry is not None,
+            "story_role": entry.get("story_role") if entry else None,
+            "story_order": entry.get("story_order") if entry else None,
+            "story_title": entry.get("story_title") if entry else None,
+        }
+
     def research_companies(config):
         """Active universe, plus explicit SYNTHETIC: lab series in the demo universe only.
 
@@ -219,6 +242,7 @@ def create_app(root=None, settings=None):
                 if namespace(row.instrument_id, config)
             ]
             ids = {run.run_id for run in runs}
+            story = demo_story(config)
             coverage = []
             for company in research_companies(config):
                 rows = [
@@ -247,8 +271,9 @@ def create_app(root=None, settings=None):
                 "exists": config.database_path.exists(),
                 "mode": config.mode,
                 "companies": coverage,
-                "articles": [a.model_dump(mode="json") for a in articles],
-                "runs": [r.model_dump(mode="json") for r in runs],
+                "articles": [article_json(a, story) for a in articles],
+                "demo_story": sorted(story.values(), key=lambda entry: entry["story_order"]),
+                "runs": [run_json(r) for r in runs],
                 "outcomes": [
                     r.model_dump(mode="json")
                     for r in deps.storage.list_outcomes()
@@ -330,7 +355,7 @@ def create_app(root=None, settings=None):
                 deps,
                 repeat_run=payload.repeat_run,
             )
-            return run.model_dump(mode="json")
+            return run_json(run)
 
     @api.get("/api/case/{run_id}")
     def case(run_id: str, workspace: Workspace = "local", universe: Universe = "live"):
@@ -338,7 +363,9 @@ def create_app(root=None, settings=None):
             run = deps.storage.get_run(run_id)
             if not run or not namespace(run.article_id, deps.settings):
                 raise HTTPException(404, "Saved run not found in this universe")
-            return case_payload(deps.storage, run)
+            payload = case_payload(deps.storage, run)
+            payload["run"].update(describe_run(run))
+            return payload
 
     @api.post("/api/explain/{run_id}")
     def explanation(run_id: str, workspace: Workspace = "local", universe: Universe = "live"):
@@ -388,14 +415,20 @@ def create_app(root=None, settings=None):
     def backtest(
         payload: BacktestRequest, workspace: Workspace = "local", universe: Universe = "live"
     ):
-        from .strategy_lab import run_backtest
+        from .strategy_lab import run_backtest, walk_forward
 
         with dependencies(workspace, universe) as deps:
             bars = selected_bars(payload, deps)
             arguments = payload.model_dump(
-                exclude={"company_id", "start_date", "end_date", "as_of"}
+                exclude={"company_id", "start_date", "end_date", "as_of", "walk_forward_split"}
             )
-            return {**run_backtest(bars, **arguments), "manifest": research_manifest(payload, bars)}
+            result = {
+                **run_backtest(bars, **arguments),
+                "manifest": research_manifest(payload, bars),
+            }
+            if payload.walk_forward_split is not None:
+                result["walk_forward"] = walk_forward(bars, payload.walk_forward_split, **arguments)
+            return result
 
     @api.post("/api/monte-carlo")
     def simulation(payload: MonteCarloRequest):
@@ -444,7 +477,13 @@ def create_app(root=None, settings=None):
                 return sync_historical(
                     deps, payload.company_ids, payload.start_date, payload.end_date
                 )
-            return sync_live(deps, payload.company_ids, payload.lookback_days, payload.include_news)
+            return sync_live(
+                deps,
+                payload.company_ids,
+                payload.lookback_days,
+                payload.include_news,
+                include_commodities=payload.include_commodities,
+            )
 
     @api.post("/api/analyse-news")
     def batch(payload: BatchRequest, workspace: Workspace = "local", universe: Universe = "live"):

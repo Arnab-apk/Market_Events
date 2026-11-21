@@ -1,0 +1,42 @@
+{
+  "version": "demo-story-v1",
+  "provenance": "Presentation ordering for the bundled synthetic demo articles. A display aid only; it never changes an article record or a decision.",
+  "articles": [
+    {
+      "article_id": "syn-002",
+      "story_role": "crude_shock",
+      "story_order": 1,
+      "story_title": "Crude-oil supply disruption for a paint maker (mixed evidence, conflict)",
+      "suggested_decision_times": ["2026-01-12T12:00:00Z", "2026-01-12T10:30:00Z"],
+      "note": "At 10:30 UTC the crude session has not settled, so the same article abstains."
+    },
+    {
+      "article_id": "syn-001",
+      "story_role": "earnings",
+      "story_order": 2,
+      "story_title": "Earnings growth (positive equity evidence)",
+      "suggested_decision_times": ["2026-01-12T12:00:00Z"]
+    },
+    {
+      "article_id": "syn-003",
+      "story_role": "order",
+      "story_order": 3,
+      "story_title": "Order announcement (positive equity evidence)",
+      "suggested_decision_times": ["2026-01-12T12:00:00Z"]
+    },
+    {
+      "article_id": "syn-005",
+      "story_role": "unconfirmed",
+      "story_order": 4,
+      "story_title": "Unconfirmed report without a clear event (abstains)",
+      "suggested_decision_times": ["2026-01-12T12:00:00Z"]
+    },
+    {
+      "article_id": "syn-004",
+      "story_role": "irrelevant",
+      "story_order": 5,
+      "story_title": "Unrelated sponsorship news (filtered as irrelevant)",
+      "suggested_decision_times": ["2026-01-12T12:00:00Z"]
+    }
+  ]
+}

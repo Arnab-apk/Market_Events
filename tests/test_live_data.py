@@ -2,6 +2,7 @@
 
 import gzip
 import json
+import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -87,7 +88,12 @@ def no_network(monkeypatch):
 
 @pytest.fixture
 def deps(tmp_path):
-    settings = Settings(root=ROOT, universe="live", mode="live")
+    # Real live universe, but no reviewed exposure rules: these tests cover the
+    # equity/benchmark/news adapter. Linked-commodity sync is tested separately.
+    root = tmp_path / "root"
+    shutil.copytree(ROOT / "configs", root / "configs")
+    (root / "configs/live_exposure_rules.json").unlink()
+    settings = Settings(root=root, universe="live", mode="live")
     settings.live_data.access_token = SecretStr(TOKEN)
     with Storage(tmp_path / "live.sqlite") as store:
         yield SimpleNamespace(settings=settings, storage=store)
@@ -129,9 +135,14 @@ def provider(
 def test_metadata_is_offline_separate_and_returns_fresh_records():
     settings = Settings(root=ROOT)
     first = live_data.get_live_universe(settings)
-    assert len(first) == 6
+    assert len(first) == 7
     assert sum(item["market_family"] == "equity" for item in first) == 5
-    assert all(item["instrument_id"].startswith("LIVE:NSE:") for item in first)
+    commodities = [item for item in first if item["market_family"] == "commodity"]
+    assert [item["instrument_id"] for item in commodities] == ["LIVE:MCX:CRUDEOIL"]
+    assert commodities[0]["contract_selection"] == "near_month"
+    assert all(
+        item["instrument_id"].startswith("LIVE:NSE:") for item in first if item not in commodities
+    )
     assert all(item["provider_instrument_key"] is None for item in first)
     first[0]["name"] = "Changed caller copy"
     assert live_data.get_live_universe(ROOT)[0]["name"] != "Changed caller copy"
@@ -146,7 +157,7 @@ def test_sync_resolves_current_master_normalizes_eod_and_returns_stable_contract
     assert report["errors"] == []
     assert report["network_requests"] == len(calls) == 4
     assert report["data_source"] == "imported_historical_data"
-    assert report["universe_version"] == "live-nse-v1"
+    assert report["universe_version"] == "live-nse-mcx-v2"
     assert {item["provider_instrument_key"] for item in report["universe"]} == {
         EQUITY_KEY,
         INDEX_KEY,

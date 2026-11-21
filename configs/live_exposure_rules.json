@@ -1,0 +1,53 @@
+{
+  "version": "live-reviewed-v1",
+  "provenance": "Reviewed, cutoff-dated LIVE exposure assumptions. known_at is the review date, so these rules cannot support any decision before 2026-11-21. Sources are secondary press commentary used for the direction only; no magnitude is claimed and nothing here is empirically validated.",
+  "rules": [
+    {
+      "company_id": "LIVE:NSE:ASIANPAINT",
+      "commodity_id": "LIVE:MCX:CRUDEOIL",
+      "relationship": "Reviewed assumption: crude-linked raw materials (solvents, resins, emulsions) are an input cost, so a crude price rise is treated as adverse.",
+      "source": "[S] Secondary press source, motivation only: Upstox News, 'Asian Paints, Berger, Indigo Paints: can paint stocks weather crude price fluctuations?', https://upstox.com/news/market-news/stocks/asian-paints-berger-indigo-paints-can-paint-stocks-weather-crude-price-fluctuations/article-194560/ . Direction proposed by an AI assistant on 2026-11-21 and PENDING REVIEW by the project team; not empirically validated. Confirm against the company's annual-report cost-of-materials note before relying on it.",
+      "direction": -1,
+      "effective_at": "2026-11-21T00:00:00Z",
+      "known_at": "2026-11-21T00:00:00Z",
+      "version": "live-reviewed-v1",
+      "rule_id": "live-crude-asianpaint"
+    },
+    {
+      "company_id": "LIVE:NSE:BERGEPAINT",
+      "commodity_id": "LIVE:MCX:CRUDEOIL",
+      "relationship": "Reviewed assumption: crude-linked raw materials (solvents, resins, emulsions) are an input cost, so a crude price rise is treated as adverse.",
+      "source": "[S] Secondary press source, motivation only: Upstox News, 'Asian Paints, Berger, Indigo Paints: can paint stocks weather crude price fluctuations?', https://upstox.com/news/market-news/stocks/asian-paints-berger-indigo-paints-can-paint-stocks-weather-crude-price-fluctuations/article-194560/ . Direction proposed by an AI assistant on 2026-11-21 and PENDING REVIEW by the project team; not empirically validated. Confirm against the company's annual-report cost-of-materials note before relying on it.",
+      "direction": -1,
+      "effective_at": "2026-11-21T00:00:00Z",
+      "known_at": "2026-11-21T00:00:00Z",
+      "version": "live-reviewed-v1",
+      "rule_id": "live-crude-bergepaint"
+    },
+    {
+      "company_id": "LIVE:NSE:INDIGO",
+      "commodity_id": "LIVE:MCX:CRUDEOIL",
+      "relationship": "Reviewed assumption: aviation turbine fuel is a major operating cost, so a crude price rise is treated as adverse.",
+      "source": "[S] Secondary press source, motivation only: Business Standard, 'IndiGo hikes fuel charges from Oct 6 as ATF costs rise', https://www.business-standard.com/amp/industry/aviation/indigo-hikes-fuel-charges-from-oct-6-as-atf-costs-rise-over-14-126100500387_1.html . Direction proposed by an AI assistant on 2026-11-21 and PENDING REVIEW by the project team; not empirically validated.",
+      "direction": -1,
+      "effective_at": "2026-11-21T00:00:00Z",
+      "known_at": "2026-11-21T00:00:00Z",
+      "version": "live-reviewed-v1",
+      "rule_id": "live-crude-indigo"
+    }
+  ],
+  "reviewed_without_rule": [
+    {
+      "company_id": "LIVE:NSE:RELIANCE",
+      "commodity_id": "LIVE:MCX:CRUDEOIL",
+      "reviewed_at": "2026-11-21T00:00:00Z",
+      "reason": "Sign ambiguous: refining and upstream businesses can gain or lose from a crude move depending on spreads, so no direction is assumed and crude-disruption analyses abstain."
+    },
+    {
+      "company_id": "LIVE:NSE:PIDILITIND",
+      "commodity_id": "LIVE:MCX:CRUDEOIL",
+      "reviewed_at": "2026-11-21T00:00:00Z",
+      "reason": "Not reviewed with a source yet; no rule, so crude-disruption analyses abstain."
+    }
+  ]
+}

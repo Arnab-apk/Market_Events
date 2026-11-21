@@ -69,6 +69,7 @@ def test_readiness_is_offline_and_never_exposes_the_token(live_deps, monkeypatch
         "news",
         "technicals",
         "event_models",
+        "commodity_prices",
     }
     assert all(set(row) == {"capability", "name", "configured", "ready", "reason"} for row in rows)
     assert next(row for row in rows if row["capability"] == "market_history")["ready"]
@@ -413,6 +414,8 @@ def test_actual_adapter_sync_to_explicit_model_batch_preserves_cutoff_and_identi
     monkeypatch.setattr(requests, "get", get)
     monkeypatch.setattr(requests.Session, "post", post)
     monkeypatch.setattr(live_data.time, "sleep", lambda seconds: None)
+    # Same "no reviewed exposure rules" scenario as the pipeline patch above.
+    monkeypatch.setattr(live_data, "read_exposure_rules", lambda settings: [])
     with Storage(tmp_path / "adapter.sqlite") as storage:
         dependencies = Dependencies(storage, settings)
         report = live_data.sync_live(

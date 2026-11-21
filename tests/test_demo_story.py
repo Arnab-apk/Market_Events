@@ -256,13 +256,13 @@ def test_step7_strategy_lab_backtest_cost_stress_and_monte_carlo_on_labelled_his
     view = workspace(story)
     lab = next(row for row in view["companies"] if row["instrument_id"] == LAB)
     assert lab["synthetic"] is True and "not performance evidence" in lab["source"]
-    assert lab["research_bars"] == 523
-    study = {"company_id": LAB, "start_date": "2019-01-01", "end_date": "2020-12-31"}
+    assert lab["research_bars"] == 1566
+    study = {"company_id": LAB, "start_date": "2015-01-01", "end_date": "2020-12-31"}
     history = story.client.post("/api/history", params=DEMO, json=study)
     assert history.status_code == 200, history.text
     history = history.json()
-    assert len(history["bars"]) == 523
-    assert history["actual_start"] == "2019-01-01" and history["actual_end"] == "2020-12-31"
+    assert len(history["bars"]) == 1566
+    assert history["actual_start"] == "2015-01-01" and history["actual_end"] == "2020-12-31"
     assert history["indicators"]["sma50"] and history["indicators"]["rsi14"]
     assert history["manifest"]["instrument_id"] == LAB
 
@@ -290,10 +290,10 @@ def test_step7_strategy_lab_backtest_cost_stress_and_monte_carlo_on_labelled_his
 
 
 def test_lab_history_never_enters_event_evidence_or_the_live_universe(story):
-    study = {"company_id": LAB, "start_date": "2019-01-01", "end_date": "2020-12-31"}
+    study = {"company_id": LAB, "start_date": "2015-01-01", "end_date": "2020-12-31"}
     history = story.client.post("/api/history", params=DEMO, json=study).json()
     lab_ids = set(history["manifest"]["supporting_observation_ids"])
-    assert len(lab_ids) == 523
+    assert len(lab_ids) == 1566
     view = workspace(story)
     assert view["runs"]
     for run in view["runs"]:
@@ -338,3 +338,77 @@ def test_cli_replays_the_same_story_and_exports(tmp_path, monkeypatch, capsys):
     assert datetime.fromisoformat(run["decision_time"].replace("Z", "+00:00")) == datetime(
         2026, 1, 12, 12, tzinfo=timezone.utc
     )
+
+
+def test_api_adds_plain_language_and_featured_story_without_persisting_them(story):
+    run = analyse(story, "syn-002")
+    assert "Berger Paints beat its benchmark by 0.8%" in run["plain_summary"]
+    assert "crude oil rose 1.5%" in run["plain_summary"]
+    assert run["plain_summary"].endswith("so the evidence is mixed (neutral).")
+    assert run["score_formula"].startswith("0.6 × (+0.40 equity vs benchmark)")
+    early = analyse(story, "syn-002", BEFORE_CRUDE_SETTLES)
+    assert early["plain_summary"].startswith("No assessment for Berger Paints")
+    case = story.client.get(f"/api/case/{run['run_id']}", params=DEMO).json()
+    assert case["run"]["plain_summary"] == run["plain_summary"]
+    view = workspace(story)
+    assert all("plain_summary" in saved for saved in view["runs"])
+    featured = {a["article_id"]: a for a in view["articles"] if a["featured"]}
+    assert {k: v["story_role"] for k, v in featured.items()} == {
+        "syn-001": "earnings",
+        "syn-002": "crude_shock",
+        "syn-003": "order",
+        "syn-004": "irrelevant",
+        "syn-005": "unconfirmed",
+    }
+    assert [entry["article_id"] for entry in view["demo_story"]][0] == "syn-002"
+    assert all(a["story_role"] is None for a in view["articles"] if not a["featured"])
+    # Display-only: the ledger record has no plain-language fields.
+    from market_events.storage import Storage
+
+    with Storage(story.root / "data/web_demo.sqlite") as store:
+        assert "plain_summary" not in store.get_run(run["run_id"]).model_dump_json()
+    live = story.client.get("/api/workspace").json()
+    assert live["demo_story"] == [] and all(not a["featured"] for a in live["articles"])
+
+
+def test_backtest_walk_forward_shows_in_and_out_of_sample_side_by_side(story):
+    base = {
+        "company_id": LAB,
+        "start_date": "2019-01-01",
+        "end_date": "2020-12-31",
+        "strategy": "sma_cross",
+    }
+    plain = story.client.post("/api/backtest", params=DEMO, json=base).json()
+    assert "walk_forward" not in plain  # backward compatible when not requested
+    response = story.client.post(
+        "/api/backtest", params=DEMO, json={**base, "walk_forward_split": "2020-01-01"}
+    )
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["metrics"] == plain["metrics"]  # full-window result unchanged
+    split = result["walk_forward"]
+    assert split["split_date"] == "2020-01-01"
+    assert split["in_sample"]["actual_end"] == "2019-12-31"
+    assert split["out_of_sample"]["actual_start"] == "2020-01-01"
+    assert split["in_sample"]["bars"] + split["out_of_sample"]["bars"] == len(plain["equity"])
+    for side in ("in_sample", "out_of_sample"):
+        assert {"total_return", "sharpe", "probabilistic_sharpe", "max_drawdown"} <= set(
+            split[side]["metrics"]
+        )
+    for bad in ("2019-01-01", "2021-01-01"):
+        rejected = story.client.post(
+            "/api/backtest", params=DEMO, json={**base, "walk_forward_split": bad}
+        )
+        assert rejected.status_code == 422
+
+
+def test_lab_history_extension_keeps_earlier_bars_so_reloading_the_demo_is_safe(story):
+    # A ledger loaded before the 2015-2018 extension already holds the 2019-2020 bars.
+    # Those rows are unchanged, so loading the demo again must not hit an immutable conflict.
+    again = story.client.post("/api/demo")
+    assert again.status_code == 200, again.text
+    rows = (ROOT / "tests/fixtures/synthetic_lab_history.csv").read_text().splitlines()[1:]
+    last_2018 = next(r for r in reversed(rows) if r.split(",")[2].startswith("2018"))
+    first_2019 = next(r for r in rows if r.split(",")[2].startswith("2019"))
+    assert last_2018.split(",")[7] == first_2019.split(",")[4]  # continuous price path
+    assert rows[0].split(",")[2] == "2015-01-01T10:00:00Z" and len(rows) == 1566

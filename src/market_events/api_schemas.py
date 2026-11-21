@@ -70,6 +70,17 @@ class BacktestRequest(HistoryRequest):
     slow_period: int = Field(default=50, ge=2, le=10000)
     rsi_buy: float = Field(default=30, ge=0, le=100)
     rsi_sell: float = Field(default=70, ge=0, le=100)
+    # Optional: also run the same configuration in-sample/out-of-sample around this
+    # out-of-sample start date. Omitted, the response is exactly the plain backtest.
+    walk_forward_split: date | None = None
+
+    @model_validator(mode="after")
+    def split_inside_window(self):
+        """A walk-forward split must leave bars on both sides of the study window."""
+        split = self.walk_forward_split
+        if split is not None and not self.start_date < split <= self.end_date:
+            raise ValueError("walk_forward_split must satisfy start_date < split <= end_date")
+        return self
 
 
 class MonteCarloRequest(WebRequest):
@@ -91,6 +102,8 @@ class SyncRequest(WebRequest):
     end_date: date = date(2020, 12, 31)
     lookback_days: int = Field(default=550, ge=1, le=3650)
     include_news: bool = False
+    # Live sync also fetches commodities linked by reviewed exposure rules (near-month MCX).
+    include_commodities: bool = True
 
 
 class BatchRequest(WebRequest):

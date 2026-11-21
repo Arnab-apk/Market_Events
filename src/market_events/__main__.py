@@ -40,6 +40,11 @@ def main(argv=None):
     sync.add_argument("--companies", nargs="+")
     sync.add_argument("--lookback-days", type=int, default=550)
     sync.add_argument("--no-news", action="store_true")
+    sync.add_argument(
+        "--no-commodities",
+        action="store_true",
+        help="Skip commodities linked by reviewed live exposure rules",
+    )
     technicals = commands.add_parser("technicals", help="Calculate local technical indicators")
     technicals.add_argument("company_id")
     technicals.add_argument(
@@ -126,7 +131,11 @@ def main(argv=None):
                     if row.get("market_family", "equity") == "equity"
                 ]
                 report = sync_live(
-                    dependencies, company_ids, args.lookback_days, include_news=not args.no_news
+                    dependencies,
+                    company_ids,
+                    args.lookback_days,
+                    include_news=not args.no_news,
+                    include_commodities=not args.no_commodities,
                 )
                 print(json.dumps(report, indent=2))
                 return 1 if report["errors"] else 0

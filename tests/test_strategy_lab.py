@@ -16,6 +16,7 @@ from market_events.strategy_lab import (
     prepare_history,
     probabilistic_sharpe,
     run_backtest,
+    walk_forward,
 )
 from market_events.technicals import compute_technicals
 
@@ -700,3 +701,32 @@ def test_backtest_reports_psr_with_not_deflated_disclosure():
     assert 0 <= result["metrics"]["probabilistic_sharpe"] <= 1
     note = next(a for a in result["assumptions"] if "Probabilistic Sharpe" in a)
     assert "not deflated for the number of configurations tried" in note
+
+
+def test_walk_forward_runs_the_same_fixed_rule_independently_on_each_segment():
+    closes = [100 + 4 * sin(i / 5) + i * 0.05 for i in range(160)]
+    rows = bars(closes)
+    split = (rows[100].timestamp.date()).isoformat()
+    params = {"strategy": "sma_cross", "fast_period": 5, "slow_period": 20, "cost_bps": 10}
+    result = walk_forward(rows, date.fromisoformat(split), **params)
+    inside = [r for r in rows if r.timestamp.date() < date.fromisoformat(split)]
+    outside = [r for r in rows if r.timestamp.date() >= date.fromisoformat(split)]
+    assert result["split_date"] == split
+    assert result["in_sample"]["bars"] == len(inside) == 100
+    assert result["out_of_sample"]["bars"] == len(outside) == 60
+    assert result["in_sample"]["actual_end"] < result["out_of_sample"]["actual_start"] == split
+    # Each side equals an independent backtest of that segment alone: no leakage.
+    assert result["in_sample"]["metrics"] == run_backtest(inside, **params)["metrics"]
+    assert result["out_of_sample"]["metrics"] == run_backtest(outside, **params)["metrics"]
+    assert any("no parameter was tuned" in note for note in result["assumptions"])
+
+
+def test_walk_forward_rejects_empty_or_too_short_segments():
+    rows = bars([100 + i for i in range(60)])
+    first, last = rows[0].timestamp.date(), rows[-1].timestamp.date()
+    with pytest.raises(ValueError, match="in-sample segment has no bars"):
+        walk_forward(rows, first, strategy="buy_hold")
+    with pytest.raises(ValueError, match="out-of-sample segment: sma_cross requires"):
+        walk_forward(rows, last, strategy="sma_cross", fast_period=2, slow_period=5)
+    with pytest.raises(ValueError, match="split_date must be a date"):
+        walk_forward(rows, datetime(2019, 1, 10, tzinfo=timezone.utc), strategy="buy_hold")
