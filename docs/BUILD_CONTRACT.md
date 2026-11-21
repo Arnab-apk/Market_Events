@@ -1,6 +1,6 @@
 # Shared implementation contract
 
-Read MVP_IMPLEMENTATION_GUIDE.md. The guide initially ended at section 7.4 and was extended concurrently through section 18 during this build. Its requirements take precedence; this contract records shared implementation interfaces and frozen numerical choices. All bundled data fixtures are explicitly synthetic. Actual local inference is tested separately and is never presented as real-market validation.
+Read `docs/archive/planning/MVP_IMPLEMENTATION_GUIDE.md`. The guide initially ended at section 7.4 and was extended concurrently through section 18 during this build. Its requirements take precedence; this contract records shared implementation interfaces and frozen numerical choices. All bundled data fixtures are explicitly synthetic. Actual local inference is tested separately and is never presented as real-market validation.
 
 Root owns schemas.py, config.py, model_client.py, agents/, pipeline.py, __main__.py, pyproject.toml and integration. Data agent owns ingestion.py, event_memory.py, storage.py and related tests. Quant agent owns exposure.py, market_features.py, fusion.py, outcomes.py, configs/, tests/fixtures/ and related tests. UI agent owns app.py, .streamlit/, README.md and docs/ (except this contract), experiments.py and UI/experiment tests. Do not edit others' files. Coordinate via reading shared files; no nested agents. Use Python 3.10+, Pydantic v2. Plain functions. No git commits.
 
@@ -42,7 +42,7 @@ Root creates .venv and installs package. Run .venv/Scripts/python.exe -m pytest 
 
 The user requested coordination with the Understanding Herdr tab, technical indicators and a real-data workflow configured through local credentials, together with a clearer dashboard. Ownership for this extension:
 
-- Understanding: schemas, config, pipeline, market_features, CLI, backend integration tests, new `docs/LIVE_SETUP.md` and `PROTOTYPE_WORKFLOW_AND_FEATURES.md`.
+- Understanding: schemas, config, pipeline, market_features, CLI, backend integration tests, new `docs/LIVE_SETUP.md` and `docs/archive/planning/PROTOTYPE_WORKFLOW_AND_FEATURES.md`.
 - Quant: new `technicals.py` and `test_technicals.py`.
 - Data: new `live_data.py`, `test_live_data.py` and `configs/live_universe.json`.
 - UI & Docs: app, Streamlit theme, AppTest coverage and existing UI documentation. Coordinator owns this contract and final integration verification.

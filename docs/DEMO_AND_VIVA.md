@@ -39,7 +39,7 @@ fixture prices are constant-growth paths, so they show the mechanics only.
 
 ## Streamlit walkthrough (fallback path)
 
-Start Streamlit using the README command. Open the page and observe that no demo or database is created. Select **Load synthetic demo (replay)** and explicitly identify the synthetic provenance. Its decision cutoff is 12 January 2026, 17:30 IST / noon UTC.
+Start Streamlit using the command in the [user guide](USER_GUIDE.md) ("Start locally"). Open the page and observe that no demo or database is created. Select **Load synthetic demo (replay)** and explicitly identify the synthetic provenance. Its decision cutoff is 12 January 2026, 17:30 IST / noon UTC.
 
 The demo action is in the main-area quick start and opens **Review saved results**. Begin with the human-readable evidence label, signed score and percentage coverage. Explain that coverage is available evidence weight, not confidence. Then inspect the source and evidence tabs. Raw source/event records, observation diagnostics, policy/repeat controls and configuration remain in labelled expanders. In **Analyse an article**, use **Open saved result** after the explicit analysis submit; changing an article or filter does not start inference.
 
@@ -65,4 +65,4 @@ Live inference is a separate opt-in provider exercise. Configure actual models t
 
 For the real-data path, follow [LIVE_SETUP.md](LIVE_SETUP.md), select the provider universe and open **Connect and refresh data**. Configuration checks do not test a connection. Refresh data explicitly, inspect counts and per-company errors, then compute local indicators or separately submit the bounded news-model batch. Token presence alone never demonstrates successful access. Adapter/pipeline integration now passes offline with mocked HTTP transports, including repeat-refresh and model-action isolation checks. A real-account demonstration still requires your own configured token and successful explicit fetch.
 
-The dashboard runs locally at `http://127.0.0.1:8501` with the README command. Automated UI checks use Streamlit AppTest. Browser screenshots and visual browser inspection were not checked because the browser tool had no available browser; do not present AppTest as visual or accessibility certification.
+The dashboard runs locally at `http://127.0.0.1:8501` with the Streamlit command in the [user guide](USER_GUIDE.md). Automated UI checks use Streamlit AppTest. Browser screenshots and visual browser inspection were not checked because the browser tool had no available browser; do not present AppTest as visual or accessibility certification.

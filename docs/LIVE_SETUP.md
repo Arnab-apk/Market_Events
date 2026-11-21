@@ -165,7 +165,7 @@ Global `--root`, `--database` and `--universe` options precede the subcommand. `
 - [The live provider adapter](../src/market_events/live_data.py) exposes `get_live_universe(settings_or_root)` plus `sync_live(dependencies, company_ids, lookback_days=550, include_news=True, now=None)`.
 - [Configuration](../src/market_events/config.py) excludes credentials and selects the universe.
 - [Pipeline](../src/market_events/pipeline.py) saves technical context, enforces namespaces and exposes offline readiness/separate batch analysis.
-- [Full workflow and feature guide](../PROTOTYPE_WORKFLOW_AND_FEATURES.md) explains the existing event pipeline and outcome interpretation.
+- [Full workflow and feature guide](archive/planning/PROTOTYPE_WORKFLOW_AND_FEATURES.md) explains the existing event pipeline and outcome interpretation.
 
 Automated indicator tests use independently checkable numerical examples and boundary cases. Provider tests use mocked response payloads, including failures; passing them does not establish actual account connectivity. The final offline checkpoint on 24 October 2026 was **270 passed in 18.53 seconds**, with full Ruff and 40-file format checks passing. Replay demo, outcomes, exports, technicals and readiness CLI smoke checks passed. The actual-adapter metadata UI smoke exposed five equity choices with zero network requests or evidence writes; the local Streamlit service at `127.0.0.1:8501` returned healthy status. Rendered-browser, mobile and screen-reader behaviour remain unverified. Run the full suite with `.\.venv\Scripts\python.exe -m pytest -q`.
 

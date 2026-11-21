@@ -1,5 +1,8 @@
 # Project comparison and differentiation plan
 
+> **Archived document.** Kept for history from the planning and early-build phase. It may not match the
+> current code. Start with the [README](../../../README.md) and the [documentation index](../../README.md).
+
 ## A Heterogeneous Multi-Agent Framework for Financial Event Detection and Cross-Market Signal Fusion in Indian Financial Markets
 
 **Prepared for:** Arnab and project team  

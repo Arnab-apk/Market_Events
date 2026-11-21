@@ -1,8 +1,11 @@
 # Market Events Prototype: Full Workflow and Features
 
+> **Archived document.** Kept for history from the planning and early-build phase. It may not match the
+> current code. Start with the [README](../../../README.md) and the [documentation index](../../README.md).
+
 Implementation reference: 24 October 2026. Application version: `0.1.0`.
 
-This guide describes the implemented local event pipeline, technical indicators and explicit live-data integration. The final offline suite passed 270 tests; actual account connectivity remains unverified. Proposed extensions are identified separately at the end. Bundled articles, prices, exposure assumptions and recorded responses are synthetic; real inputs use a separate live namespace. See [live setup](docs/LIVE_SETUP.md) for configuration and verification boundaries.
+This guide describes the implemented local event pipeline, technical indicators and explicit live-data integration. The final offline suite passed 270 tests; actual account connectivity remains unverified. Proposed extensions are identified separately at the end. Bundled articles, prices, exposure assumptions and recorded responses are synthetic; real inputs use a separate live namespace. See [live setup](../../LIVE_SETUP.md) for configuration and verification boundaries.
 
 ## 1. Purpose and scope
 
@@ -54,25 +57,25 @@ flowchart TB
 
 | File or directory | Role |
 | --- | --- |
-| [app.py](app.py) | Workspace controls, forms, tables, saved evidence and downloads |
-| [src/market_events/pipeline.py](src/market_events/pipeline.py) | Main analysis workflow, demo, outcome workflow and optional explanation workflow |
-| [src/market_events/schemas.py](src/market_events/schemas.py) | Typed records and validation contracts |
-| [src/market_events/ingestion.py](src/market_events/ingestion.py) | Article JSONL and market CSV parsing |
-| [src/market_events/storage.py](src/market_events/storage.py) | SQLite migrations, immutable records, request claims and persistence |
-| [src/market_events/event_memory.py](src/market_events/event_memory.py) | Dataset-relative duplicate, update and new-source classification |
-| [src/market_events/agents/](src/market_events/agents/) | Filtering, extraction and constrained explanation functions |
-| [src/market_events/model_client.py](src/market_events/model_client.py) | Provider requests, recorded replay, budgets, retries and call traces |
-| [src/market_events/config.py](src/market_events/config.py) | Settings, environment overrides and non-secret snapshots |
-| [src/market_events/exposure.py](src/market_events/exposure.py) | Canonical company matching and dated exposure-rule selection |
-| [src/market_events/market_features.py](src/market_events/market_features.py) | Returns, benchmark alignment, volume context and staleness |
-| [src/market_events/technicals.py](src/market_events/technicals.py) | RSI, moving averages, MACD, Bollinger Bands, ATR and ADX |
-| [src/market_events/live_data.py](src/market_events/live_data.py) | Offline universe metadata and explicit read-only price/news requests |
-| [src/market_events/fusion.py](src/market_events/fusion.py) | Evidence components, coverage, conflicts and abstention |
-| [src/market_events/outcomes.py](src/market_events/outcomes.py) | Hypothetical next-open to fifth-session-close outcomes |
-| [src/market_events/experiments.py](src/market_events/experiments.py) | Saved-run resource summaries, cohorts and commodity ablation |
-| [src/market_events/exporting.py](src/market_events/exporting.py) | Case payloads, bundle JSON, usage JSON and Markdown case reports |
-| [src/market_events/__main__.py](src/market_events/__main__.py) | CLI commands |
-| [configs/](configs/) and [prompts/](prompts/) | Company universe, exposure/fusion settings and versioned prompt text |
+| [app.py](../../../app.py) | Workspace controls, forms, tables, saved evidence and downloads |
+| [src/market_events/pipeline.py](../../../src/market_events/pipeline.py) | Main analysis workflow, demo, outcome workflow and optional explanation workflow |
+| [src/market_events/schemas.py](../../../src/market_events/schemas.py) | Typed records and validation contracts |
+| [src/market_events/ingestion.py](../../../src/market_events/ingestion.py) | Article JSONL and market CSV parsing |
+| [src/market_events/storage.py](../../../src/market_events/storage.py) | SQLite migrations, immutable records, request claims and persistence |
+| [src/market_events/event_memory.py](../../../src/market_events/event_memory.py) | Dataset-relative duplicate, update and new-source classification |
+| [src/market_events/agents/](../../../src/market_events/agents/) | Filtering, extraction and constrained explanation functions |
+| [src/market_events/model_client.py](../../../src/market_events/model_client.py) | Provider requests, recorded replay, budgets, retries and call traces |
+| [src/market_events/config.py](../../../src/market_events/config.py) | Settings, environment overrides and non-secret snapshots |
+| [src/market_events/exposure.py](../../../src/market_events/exposure.py) | Canonical company matching and dated exposure-rule selection |
+| [src/market_events/market_features.py](../../../src/market_events/market_features.py) | Returns, benchmark alignment, volume context and staleness |
+| [src/market_events/technicals.py](../../../src/market_events/technicals.py) | RSI, moving averages, MACD, Bollinger Bands, ATR and ADX |
+| [src/market_events/live_data.py](../../../src/market_events/live_data.py) | Offline universe metadata and explicit read-only price/news requests |
+| [src/market_events/fusion.py](../../../src/market_events/fusion.py) | Evidence components, coverage, conflicts and abstention |
+| [src/market_events/outcomes.py](../../../src/market_events/outcomes.py) | Hypothetical next-open to fifth-session-close outcomes |
+| [src/market_events/experiments.py](../../../src/market_events/experiments.py) | Saved-run resource summaries, cohorts and commodity ablation |
+| [src/market_events/exporting.py](../../../src/market_events/exporting.py) | Case payloads, bundle JSON, usage JSON and Markdown case reports |
+| [src/market_events/__main__.py](../../../src/market_events/__main__.py) | CLI commands |
+| [configs/](../../../configs/) and [prompts/](../../../prompts/) | Company universe, exposure/fusion settings and versioned prompt text |
 
 The UI contains presentation and interaction logic. Market calculations belong to the domain modules and are reused by the CLI.
 
@@ -221,7 +224,7 @@ Additional rules:
 
 Before fusion, a resolved company's eligible equity history also produces a `TechnicalSnapshot`, saved separately on `AnalysisRun.technicals`. Its RSI14, SMA20/50, EMA20, MACD12/26/9, Bollinger20 bands, ATR14 and ADX14 use pure local calculations. Missing warm-ups, stale values and supporting observation IDs remain explicit. Technical context does not change the frozen event-score arithmetic below. An unresolved company keeps its inspectable abstention and has no technical snapshot.
 
-The current baseline is defined in [configs/fusion_rules.json](configs/fusion_rules.json).
+The current baseline is defined in [configs/fusion_rules.json](../../../configs/fusion_rules.json).
 
 ```text
 clip(x) = max(-1, min(1, x))
@@ -402,8 +405,8 @@ Ablation does not call a model or change original runs/outcomes. Earnings and or
 
 ### Development scripts
 
-- [scripts/benchmark_models.py](scripts/benchmark_models.py): actual configured inference on synthetic fixtures; measures filter forwarding/protocol behaviour and source-grounded extraction.
-- [scripts/run_policy_comparison.py](scripts/run_policy_comparison.py): explicit live-model development comparison over selected synthetic cases; saves research exports and attempts an optional explanation.
+- [scripts/benchmark_models.py](../../../scripts/benchmark_models.py): actual configured inference on synthetic fixtures; measures filter forwarding/protocol behaviour and source-grounded extraction.
+- [scripts/run_policy_comparison.py](../../../scripts/run_policy_comparison.py): explicit live-model development comparison over selected synthetic cases; saves research exports and attempts an optional explanation.
 
 Existing documentation reports a small synthetic local-model pilot. It is development evidence, not a held-out real-market benchmark. Replay timing, fewer calls or successful extraction alone does not demonstrate latency savings, predictive accuracy or profitability.
 
@@ -545,7 +548,7 @@ Those paths are examples of files you must supply. Arbitrary imported articles r
 
 Global `--root`, `--database` and `--universe` options precede the subcommand. The demo subcommand additionally accepts its own database option and explicit `--mode live-model`; that opt-in invokes configured models on synthetic inputs. Demo loading always forces the demo universe; the dashboard demo button remains replay-only.
 
-New independent commands are `readiness` (offline configuration/coverage) and `technicals COMPANY_ID [--decision-time ISO]` (pure local calculation). The implemented live adapter adds `sync-live [--companies IDs...] [--lookback-days 550] [--no-news]`, followed by the separate explicit `analyse-news --article-ids IDs... --decision-time ISO [--policy POLICY] [--limit 10]` model action. These paths are verified offline with mocked provider/model transport; use [live setup](docs/LIVE_SETUP.md) to configure and explicitly verify an actual account.
+New independent commands are `readiness` (offline configuration/coverage) and `technicals COMPANY_ID [--decision-time ISO]` (pure local calculation). The implemented live adapter adds `sync-live [--companies IDs...] [--lookback-days 550] [--no-news]`, followed by the separate explicit `analyse-news --article-ids IDs... --decision-time ISO [--policy POLICY] [--limit 10]` model action. These paths are verified offline with mocked provider/model transport; use [live setup](../../LIVE_SETUP.md) to configure and explicitly verify an actual account.
 
 ## 15. Verification and current limits
 
@@ -591,14 +594,14 @@ A practical first extension is one reproducible real-data path from a permitted 
 
 ## 17. Related project documentation
 
-- [README and startup instructions](README.md)
-- [Real-data configuration and indicator setup](docs/LIVE_SETUP.md)
-- [Codebase guide](docs/CODEBASE_GUIDE.md)
-- [Data dictionary](docs/DATA_DICTIONARY.md)
-- [Build contract](docs/BUILD_CONTRACT.md)
-- [Model and prompt notes](docs/MODEL_AND_PROMPT_NOTES.md)
-- [Experiments and interpretation](docs/EXPERIMENTS.md)
-- [Demo and viva walkthrough](docs/DEMO_AND_VIVA.md)
+- [README and startup instructions](../../../README.md)
+- [Real-data configuration and indicator setup](../../LIVE_SETUP.md)
+- [Codebase guide](../../CODEBASE_GUIDE.md)
+- [Data dictionary](../../DATA_DICTIONARY.md)
+- [Build contract](../../BUILD_CONTRACT.md)
+- [Model and prompt notes](../../MODEL_AND_PROMPT_NOTES.md)
+- [Experiments and interpretation](../../EXPERIMENTS.md)
+- [Demo and viva walkthrough](../../DEMO_AND_VIVA.md)
 - [MVP implementation guide](MVP_IMPLEMENTATION_GUIDE.md)
 - [Project comparison and differentiation](PROJECT_COMPARISON_AND_DIFFERENTIATION.md)
 
