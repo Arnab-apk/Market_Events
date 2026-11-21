@@ -1,4 +1,7 @@
-"""Explicit local settings. Secrets never enter saved configuration snapshots."""
+"""Settings and configuration files. load_settings combines configs/settings.json, environment
+variables and a local .env into one Settings object used by every workflow. Secrets are excluded
+from the configuration snapshot that each saved run keeps.
+"""
 
 import json
 import os
@@ -10,6 +13,8 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 
 class ModelSettings(BaseModel):
+    """Connection and output limits for one model role (SLM or LLM)."""
+
     model_config = ConfigDict(extra="forbid")
     provider: Literal["ollama", "openai_compatible"] = "ollama"
     base_url: str = "http://localhost:11434"
@@ -20,6 +25,7 @@ class ModelSettings(BaseModel):
     @field_validator("base_url")
     @classmethod
     def valid_url(cls, value):
+        """Require an http(s) host and keep credentials out of URLs."""
         from urllib.parse import urlparse
 
         parts = urlparse(value)
@@ -43,6 +49,8 @@ class LiveDataSettings(BaseModel):
 
 
 class Settings(BaseModel):
+    """All runtime settings; ``snapshot()`` is what a saved run records."""
+
     model_config = ConfigDict(extra="forbid")
     root: Path = Path(".")
     database_path: Path = Path("data/market_events.sqlite")
@@ -56,10 +64,12 @@ class Settings(BaseModel):
     timeout_seconds: float = Field(default=120, gt=0, le=300)
 
     def snapshot(self) -> dict:
+        """JSON-ready settings for run snapshots; secrets are excluded."""
         return self.model_dump(mode="json")
 
 
 def load_settings(root: Path = Path(".")) -> Settings:
+    """Build Settings from settings.json, then environment overrides."""
     root = root.resolve()
     load_dotenv(root / ".env", override=False)
     filename = root / "configs/settings.json"
@@ -88,6 +98,7 @@ def load_settings(root: Path = Path(".")) -> Settings:
 
 
 def read_config(root: Path, name: str):
+    """Read one JSON file from the configs/ folder."""
     return json.loads((root / "configs" / name).read_text(encoding="utf-8"))
 
 
@@ -105,6 +116,11 @@ def read_companies(settings: Settings) -> list[dict]:
 
 
 def read_exposure_rules(settings: Settings) -> list[dict]:
+    """Reviewed company-commodity exposure rules for the active universe.
+
+    The live universe has no rules unless configs/live_exposure_rules.json exists;
+    synthetic demo rules never apply to live instruments.
+    """
     if settings.universe == "demo":
         return read_config(settings.root, "exposure_rules.json")
     filename = settings.root / "configs" / "live_exposure_rules.json"

@@ -1,4 +1,8 @@
-"""Explicit live-model development comparison over the same synthetic sources."""
+"""Developer script: explicit live-model comparison of the three execution policies. It loads the
+synthetic demo, re-analyses the same synthetic sources under every policy with live models, and
+saves the comparison and export bundles. Results describe development runs on authored inputs,
+not real-market validation.
+"""
 
 import json
 import argparse
@@ -20,6 +24,7 @@ from market_events.storage import Storage
 
 
 def main():
+    """Run every policy over the same sources and save the JSON reports."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", type=Path)
     args = parser.parse_args()

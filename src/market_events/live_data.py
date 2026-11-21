@@ -1,4 +1,6 @@
-"""Explicit, read-only Upstox downloads; metadata reads never access the network.
+"""Optional real-data adapter for the Upstox API (read-only). Explicit syncs download daily candles
+and optional news for the live universe, recording the real download time as availability.
+Reading universe metadata never touches the network, and every request is bounded and paced.
 
 Official adapter contracts:
 https://upstox.com/developer/api-documentation/instruments/
@@ -29,6 +31,10 @@ import requests
 
 from .schemas import Article, MarketObservation, utc
 
+# ---------------------------------------------------------------------------
+# Provider endpoints and limits
+# ---------------------------------------------------------------------------
+
 MASTER_URL = "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz"
 API_URL = "https://api.upstox.com"
 IST = ZoneInfo("Asia/Kolkata")
@@ -36,6 +42,11 @@ MAX_RESPONSE_BYTES = 32 * 1024 * 1024
 MAX_MASTER_BYTES = 256 * 1024 * 1024
 HISTORICAL_START = date(2000, 1, 1)
 HISTORICAL_END = date(2020, 12, 31)
+
+
+# ---------------------------------------------------------------------------
+# Live universe metadata (no network access)
+# ---------------------------------------------------------------------------
 
 
 def _universe_document(settings_or_root) -> dict:
@@ -78,6 +89,11 @@ def get_live_universe(settings_or_root) -> list[dict]:
     and never writes files, initializes storage, or fetches provider data.
     """
     return _universe_document(settings_or_root)["instruments"]
+
+
+# ---------------------------------------------------------------------------
+# Bounded, paced HTTP reader
+# ---------------------------------------------------------------------------
 
 
 class _FetchError(ValueError):
@@ -142,6 +158,11 @@ class _Reader:
             if isinstance(exc, _FetchError):
                 raise
             raise _FetchError("Provider returned malformed JSON/compressed data") from None
+
+
+# ---------------------------------------------------------------------------
+# Response parsing helpers
+# ---------------------------------------------------------------------------
 
 
 def _discover(instrument, master):
@@ -229,6 +250,11 @@ def _news_article(item, fetched_at, existing):
         source_version=fingerprint,
         predecessor_id=predecessor.article_id if predecessor else None,
     )
+
+
+# ---------------------------------------------------------------------------
+# Live sync: recent daily bars and news
+# ---------------------------------------------------------------------------
 
 
 def sync_live(dependencies, company_ids, lookback_days=550, include_news=True, now=None) -> dict:
@@ -451,6 +477,11 @@ def sync_live(dependencies, company_ids, lookback_days=550, include_news=True, n
     completed = clock().isoformat()
     report.update(fetched_at=completed, decision_time=completed)
     return report
+
+
+# ---------------------------------------------------------------------------
+# Historical research download (ending 2020)
+# ---------------------------------------------------------------------------
 
 
 def sync_historical(

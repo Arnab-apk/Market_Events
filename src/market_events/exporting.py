@@ -1,4 +1,8 @@
-"""Portable JSON, human-readable cases and separate usage/outcome exports."""
+"""Exports of saved research. case_payload builds the evidence view of one run for the UI and JSON
+downloads; export_bundle writes runs, articles, outcomes and the exact supporting observations to
+a portable JSON file. Only observations a run actually referenced are included, and missing ones
+are listed.
+"""
 
 import json
 from pathlib import Path
@@ -34,6 +38,7 @@ def case_payload(storage, run) -> dict:
 
 
 def export_bundle(storage, output: Path, run_id: str | None = None) -> dict:
+    """Write all (or one) saved runs with their sources, outcomes and evidence to JSON."""
     runs = storage.list_runs()
     if run_id:
         runs = [r for r in runs if r.run_id == run_id]

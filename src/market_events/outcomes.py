@@ -1,4 +1,8 @@
-"""Separate next-open to fifth-session-close hypothetical long outcomes."""
+"""Later outcomes, kept separate from the decision. For a saved run it measures a hypothetical long
+return from the next session open to the fifth session close, net of costs and against the
+benchmark. Outcomes stay pending until the horizon is complete and never change the saved
+assessment.
+"""
 
 import math
 from datetime import datetime, time, timezone

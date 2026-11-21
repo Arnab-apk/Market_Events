@@ -1,4 +1,8 @@
-"""Explicit-action Streamlit research UI over the frozen quant and data APIs."""
+"""Streamlit strategy lab page (used by app.py). It lets a user load local pre-2021 history, chart
+indicators, run a backtest and a Monte Carlo study, all through explicit form submissions.
+Calculations live in strategy_lab.py; this module handles widgets, session-state scoping and
+downloadable manifests.
+"""
 
 import csv
 import hashlib
@@ -14,6 +18,10 @@ import streamlit.components.v1 as components
 from .chart_widgets import hosted_chart_html, local_chart_html, monte_carlo_html, ohlc_rows
 from .live_data import get_live_universe, sync_historical
 from .strategy_lab import HISTORY_END, indicator_series, monte_carlo, prepare_history, run_backtest
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
 PREFIX = "strategy_lab:"
 INDICATORS = {
@@ -39,15 +47,22 @@ STRATEGIES = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Session-state scoping and result manifests
+# ---------------------------------------------------------------------------
+
+
 def _key(name):
     return PREFIX + name
 
 
 def fingerprint(value):
+    """Stable SHA-256 of a JSON-serialisable value, for result scoping."""
     return hashlib.sha256(json.dumps(value, sort_keys=True, allow_nan=False).encode()).hexdigest()
 
 
 def workspace_key(dependencies):
+    """Identify the open workspace (root, database and universe)."""
     settings = dependencies.settings
     return (
         str(Path(settings.root).resolve()),
@@ -65,6 +80,7 @@ def scope_results(state, scope):
 
 
 def result_manifest(bars, params, start, end, *, kind="backtest", parent=None):
+    """Provenance record attached to backtest and Monte Carlo downloads."""
     return dict(
         schema_version="strategy-lab-v1",
         kind=kind,
@@ -89,6 +105,7 @@ def result_manifest(bars, params, start, end, *, kind="backtest", parent=None):
 
 
 def csv_text(rows):
+    """Render a list of dictionaries as CSV text for downloads."""
     if not rows:
         return ""
     output = io.StringIO()
@@ -96,6 +113,11 @@ def csv_text(rows):
     writer.writeheader()
     writer.writerows(rows)
     return output.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Small rendering helpers
+# ---------------------------------------------------------------------------
 
 
 def _json_download(label, result, filename):
@@ -110,6 +132,11 @@ def _json_download(label, result, filename):
 
 def _percent(value):
     return "Not available" if value is None else f"{value:.2%}"
+
+
+# ---------------------------------------------------------------------------
+# History download form and hosted chart
+# ---------------------------------------------------------------------------
 
 
 def _history_form(dependencies, workspace):
@@ -205,6 +232,11 @@ def _hosted_chart():
                 components.html(hosted_chart_html(symbol), height=620, scrolling=True)
             except ValueError as error:
                 st.warning(str(error))
+
+
+# ---------------------------------------------------------------------------
+# Strategy lab page
+# ---------------------------------------------------------------------------
 
 
 def render_strategy_lab(dependencies):
@@ -419,6 +451,11 @@ def render_strategy_lab(dependencies):
         disabled=not result["trades"],
     )
     _simulation(result, bars, start, end, scope)
+
+
+# ---------------------------------------------------------------------------
+# Monte Carlo panel
+# ---------------------------------------------------------------------------
 
 
 def _simulation(backtest, bars, start, end, parent_scope):

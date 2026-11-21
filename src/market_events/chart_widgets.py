@@ -1,7 +1,8 @@
-"""HTML-only charts. Local chart data never leaves the component.
+"""Self-contained HTML charts for the Streamlit UI (price chart, Monte Carlo paths, optional hosted
+TradingView widget). Local chart data is embedded in the page and never sent anywhere;
+Lightweight Charts 5.1.0 is vendored at the end of this file, so no CDN request happens. The
+hosted widget is external and must only be rendered after an explicit opt-in.
 
-Lightweight Charts 5.1.0 is embedded below; no CDN request during rendering.
-Hosted TradingView HTML must only be rendered after an explicit opt-in.
 API references: https://tradingview.github.io/lightweight-charts/docs/5.1
 https://www.tradingview.com/widget-docs/widgets/charts/advanced-chart/
 """
@@ -23,6 +24,7 @@ def script_json(value):
 
 
 def ohlc_rows(bars):
+    """Chart-ready OHLCV rows keyed by NSE (Asia/Kolkata) session date."""
     return [
         dict(
             time=r.timestamp.astimezone(ZoneInfo("Asia/Kolkata")).date().isoformat(),

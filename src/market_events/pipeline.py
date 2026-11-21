@@ -1,4 +1,8 @@
-"""The complete research workflow, in the same order as the implementation guide."""
+"""The research workflow in order: source memory, filter, extraction, exposure, market features,
+technicals and fusion. analyse_article runs those steps for one article at a cutoff and always
+saves the result, including failures and abstentions. It also hosts the outcome, demo, readiness
+and explanation workflows that the CLI, Streamlit app and HTTP API share.
+"""
 
 import hashlib
 import json
@@ -23,8 +27,15 @@ from .schemas import AnalysisRun, ExecutionPolicy, ExposureRule, utc
 from .storage import Storage
 
 
+# ---------------------------------------------------------------------------
+# Dependencies and configuration snapshot
+# ---------------------------------------------------------------------------
+
+
 @dataclass
 class Dependencies:
+    """What a workflow needs: the open ledger, settings and optional client."""
+
     storage: Storage
     settings: Settings
     client: ModelClient | None = None
@@ -45,6 +56,11 @@ def _snapshot(settings):
     }
     result["application_version"] = "0.1.0"
     return result
+
+
+# ---------------------------------------------------------------------------
+# Analysing one article
+# ---------------------------------------------------------------------------
 
 
 def analyse_article(
@@ -235,7 +251,13 @@ def analyse_article(
         )
 
 
+# ---------------------------------------------------------------------------
+# Outcomes and the bundled synthetic demo
+# ---------------------------------------------------------------------------
+
+
 def compute_outcomes(dependencies, run_id=None) -> list:
+    """Evaluate and save later outcomes for completed or abstained runs (or one run)."""
     storage = dependencies.storage
     observations = storage.list_observations()
     results = []
@@ -257,6 +279,11 @@ def compute_outcomes(dependencies, run_id=None) -> list:
 def run_demo(root=Path("."), database_path=None, mode="replay", settings=None) -> list[AnalysisRun]:
     # A caller-supplied Settings (e.g. the web app's) is copied, never mutated, and
     # avoids re-reading local .env secrets for an offline replay.
+    """Load the bundled synthetic fixtures and analyse one article per event family.
+
+    Runs replay at the 2026-01-12 12:00 UTC cutoff and computes outcomes. A supplied
+    ``settings`` is copied, so local .env secrets are not re-read.
+    """
     settings = settings.model_copy(deep=True) if settings else load_settings(Path(root))
     settings.universe = "demo"
     settings.mode = "live" if mode in {"live", "live-model"} else "replay"
@@ -311,6 +338,11 @@ def run_demo(root=Path("."), database_path=None, mode="replay", settings=None) -
         return runs
     finally:
         storage.close()
+
+
+# ---------------------------------------------------------------------------
+# Readiness checks and live news batches
+# ---------------------------------------------------------------------------
 
 
 def readiness(dependencies) -> list[dict]:
@@ -404,7 +436,13 @@ def analyse_synced_news(
     return results
 
 
+# ---------------------------------------------------------------------------
+# Optional model explanation
+# ---------------------------------------------------------------------------
+
+
 def explain_run(run_id, dependencies) -> str:
+    """Optionally ask a model to explain a saved run, saved as a separate child run."""
     original = dependencies.storage.get_run(run_id)
     if not original or not original.assessment:
         raise ValueError("Select a saved assessed run")

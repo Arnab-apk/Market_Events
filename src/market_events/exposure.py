@@ -1,4 +1,7 @@
-"""Exact reviewed alias resolution and historically available exposure selection."""
+"""Company and exposure lookup used after extraction. resolve_company maps names found in the text
+to one configured company; find_exposure picks the reviewed company-commodity rule that was
+effective and known at the cutoff. Rules are reviewed assumptions, never inferred from prices.
+"""
 
 from datetime import datetime
 

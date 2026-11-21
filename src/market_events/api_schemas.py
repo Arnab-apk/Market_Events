@@ -1,4 +1,7 @@
-"""Bounded web requests; domain records and numerical validation remain shared."""
+"""Request bodies accepted by api.py. They bound sizes, dates and numbers before any work starts, so
+malformed requests fail with a 422 and no side effects. Domain records themselves are validated
+by schemas.py.
+"""
 
 from datetime import date
 from typing import Literal
@@ -9,10 +12,14 @@ from .schemas import AwareTime, ExecutionPolicy
 
 
 class WebRequest(BaseModel):
+    """Base for API bodies: unknown fields and NaN/infinity are rejected."""
+
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
 class AnalysisRequest(WebRequest):
+    """Body for POST /api/analyse: one article, cutoff, policy and mode."""
+
     article_id: str = Field(min_length=1, max_length=300)
     decision_time: AwareTime
     policy: ExecutionPolicy = ExecutionPolicy.slm_delegate
@@ -21,16 +28,22 @@ class AnalysisRequest(WebRequest):
 
 
 class ImportRequest(WebRequest):
+    """Body for POST /api/import: raw JSONL articles or CSV prices."""
+
     kind: Literal["articles", "prices"]
     content: str = Field(min_length=1, max_length=8_000_000)
 
 
 class TechnicalRequest(WebRequest):
+    """Body for POST /api/technicals: company and decision cutoff."""
+
     company_id: str = Field(min_length=1, max_length=300)
     decision_time: AwareTime
 
 
 class HistoryRequest(WebRequest):
+    """Study window for the strategy lab, capped at 2020-12-31."""
+
     company_id: str = Field(min_length=1, max_length=300)
     start_date: date = date(2015, 1, 1)
     end_date: date = date(2020, 12, 31)
@@ -38,12 +51,15 @@ class HistoryRequest(WebRequest):
 
     @model_validator(mode="after")
     def date_window(self):
+        """Reject windows outside 2000-01-01 to 2020-12-31."""
         if not date(2000, 1, 1) <= self.start_date <= self.end_date <= date(2020, 12, 31):
             raise ValueError("Research dates must satisfy 2000-01-01 <= start <= end <= 2020-12-31")
         return self
 
 
 class BacktestRequest(HistoryRequest):
+    """Study window plus strategy, costs and indicator parameters."""
+
     strategy: Literal[
         "buy_hold", "sma_cross", "ema_cross", "rsi_reversion", "macd_cross", "bollinger_reversion"
     ] = "sma_cross"
@@ -57,6 +73,8 @@ class BacktestRequest(HistoryRequest):
 
 
 class MonteCarloRequest(WebRequest):
+    """Returns to resample and the bootstrap settings."""
+
     daily_returns: list[float] = Field(min_length=5, max_length=10000)
     initial_capital: float = Field(default=100000, gt=0, le=1e12)
     simulations: int = Field(default=300, ge=10, le=1000)
@@ -66,6 +84,8 @@ class MonteCarloRequest(WebRequest):
 
 
 class SyncRequest(WebRequest):
+    """Body for explicit provider downloads (historical or live)."""
+
     company_ids: list[str] = Field(min_length=1, max_length=20)
     start_date: date = date(2015, 1, 1)
     end_date: date = date(2020, 12, 31)
@@ -74,6 +94,8 @@ class SyncRequest(WebRequest):
 
 
 class BatchRequest(WebRequest):
+    """Body for an explicit live-model batch over synced news."""
+
     article_ids: list[str] = Field(min_length=1, max_length=100)
     decision_time: AwareTime
     policy: ExecutionPolicy = ExecutionPolicy.slm_delegate

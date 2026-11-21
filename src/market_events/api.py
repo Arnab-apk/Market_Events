@@ -1,8 +1,8 @@
-"""Local HTTP boundary for the Next.js UI, reusing the tested research engine.
+"""Local HTTP API for the Next.js UI in web/, reusing the same research engine. GET routes read the
+ledger through a read-only view; anything that writes, calls a provider or calls a model is an
+explicit POST. Workspace paths come only from server configuration, never from the request.
 
 Run via ``python -m uvicorn market_events.api:app --host 127.0.0.1 --port 8000``.
-Workspace paths come only from server configuration. GETs use a read-only
-ledger view; provider/model calls are available only through explicit POSTs.
 """
 
 import hashlib
@@ -60,6 +60,10 @@ def create_app(root=None, settings=None):
     api.state.root = Path(root or os.getenv("MARKET_EVENTS_ROOT", ".")).resolve()
     api.state.settings = settings
 
+    # ---------------------------------------------------------------------------
+    # Request boundary, error mapping and health
+    # ---------------------------------------------------------------------------
+
     @api.middleware("http")
     async def local_boundary(request: Request, call_next):
         # Browser mutations go through Next's same-origin route. This loopback
@@ -103,6 +107,10 @@ def create_app(root=None, settings=None):
     @api.get("/api/health")
     def health():
         return {"status": "ok", "history_end": "2020-12-31"}
+
+    # ---------------------------------------------------------------------------
+    # Shared helpers: workspace selection, scoping and chart rows
+    # ---------------------------------------------------------------------------
 
     def configuration(workspace, universe):
         base = api.state.settings or load_settings(api.state.root)
@@ -192,6 +200,10 @@ def create_app(root=None, settings=None):
             "actual_start": bars[0].timestamp.astimezone(IST).date().isoformat(),
             "actual_end": bars[-1].timestamp.astimezone(IST).date().isoformat(),
         }
+
+    # ---------------------------------------------------------------------------
+    # Workspace, synthetic demo and imports
+    # ---------------------------------------------------------------------------
 
     @api.get("/api/workspace")
     def workspace_data(workspace: Workspace = "local", universe: Universe = "live"):
@@ -296,6 +308,10 @@ def create_app(root=None, settings=None):
                     )
         return {"added": added, "errors": errors, "warnings": result.warnings}
 
+    # ---------------------------------------------------------------------------
+    # Analysis, saved cases and explanations
+    # ---------------------------------------------------------------------------
+
     @api.post("/api/analyse")
     def analyse(
         payload: AnalysisRequest, workspace: Workspace = "local", universe: Universe = "live"
@@ -331,6 +347,10 @@ def create_app(root=None, settings=None):
             if not run or not namespace(run.article_id, deps.settings):
                 raise HTTPException(404, "Saved run not found in this universe")
             return {"text": explain_run(run_id, deps)}
+
+    # ---------------------------------------------------------------------------
+    # Technicals and strategy lab (read-only research)
+    # ---------------------------------------------------------------------------
 
     @api.post("/api/technicals")
     def technicals(
@@ -395,6 +415,10 @@ def create_app(root=None, settings=None):
         }
         return result
 
+    # ---------------------------------------------------------------------------
+    # Explicit provider sync and live news batches
+    # ---------------------------------------------------------------------------
+
     @api.post("/api/sync/{kind}")
     def sync(
         kind: Literal["historical", "live"],
@@ -431,6 +455,10 @@ def create_app(root=None, settings=None):
             return analyse_synced_news(
                 deps, payload.article_ids, payload.decision_time, payload.policy, payload.limit
             )
+
+    # ---------------------------------------------------------------------------
+    # Policy comparisons and outcomes
+    # ---------------------------------------------------------------------------
 
     @api.get("/api/comparisons")
     def comparisons(workspace: Workspace = "local", universe: Universe = "live"):

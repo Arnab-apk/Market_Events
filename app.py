@@ -1,4 +1,9 @@
-"""Streamlit presentation layer. All market decisions belong to the domain modules."""
+"""Streamlit workbench: the original local user interface for the research workflow. Each panel
+(import, research, saved results, technicals, connections, comparisons) collects explicit user
+actions and calls the domain modules in market_events. No market decision is made here; this file
+only presents and triggers them. Run with ``streamlit run app.py``; the Next.js UI in web/ uses
+api.py instead.
+"""
 
 import json
 from datetime import datetime, timezone
@@ -8,6 +13,10 @@ from tempfile import TemporaryDirectory
 from zoneinfo import ZoneInfo
 
 import streamlit as st
+
+# ---------------------------------------------------------------------------
+# Display constants
+# ---------------------------------------------------------------------------
 
 IST = ZoneInfo("Asia/Kolkata")
 TASKS = {
@@ -51,6 +60,11 @@ WORKFLOW_STEPS = (
     ("Saved runs", "Review the audit trail"),
     ("Comparisons", "Measure later outcomes"),
 )
+
+
+# ---------------------------------------------------------------------------
+# Page chrome and shared display helpers
+# ---------------------------------------------------------------------------
 
 
 def compact_count(value):
@@ -103,10 +117,12 @@ def workflow_strip(active):
 
 
 def label(value):
+    """Human-readable name for an internal status or label value."""
     return LABELS.get(value, str(value).replace("_", " ").capitalize())
 
 
 def article_label(article):
+    """One-line picker label for an article, flagging synthetic fixtures."""
     text = " ".join(article.text.split())
     synthetic = text.startswith("EXPLICITLY SYNTHETIC FIXTURE.")
     if synthetic:
@@ -123,10 +139,12 @@ def navigate(section, run_id=None):
 
 
 def prepare_demo():
+    """Switch the universe selector to the demo before the demo is loaded."""
     st.session_state["universe_selection"] = "demo"
 
 
 def result_summary(run):
+    """Explain a run's headline result (score, coverage, abstentions) in plain words."""
     st.subheader("What this result means")
     if run.assessment:
         result = run.assessment
@@ -159,7 +177,13 @@ def result_summary(run):
         )
 
 
+# ---------------------------------------------------------------------------
+# Start page and workspace overview
+# ---------------------------------------------------------------------------
+
+
 def start_panel(active=False):
+    """Landing page: what the workbench does and how to begin."""
     section_intro(
         "START HERE",
         "Turn a market event into an auditable research case",
@@ -312,6 +336,11 @@ def workspace_overview(dependencies):
             )
 
 
+# ---------------------------------------------------------------------------
+# Input parsing and serialisation helpers
+# ---------------------------------------------------------------------------
+
+
 def parse_cutoff(value):
     """Require an explicit offset so a cutoff can never silently become local time."""
     parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -321,10 +350,17 @@ def parse_cutoff(value):
 
 
 def dump(records):
+    """Serialise records to JSON-ready dictionaries for downloads and tables."""
     return [record.model_dump(mode="json") for record in records]
 
 
+# ---------------------------------------------------------------------------
+# Import: watchlist coverage and evidence upload
+# ---------------------------------------------------------------------------
+
+
 def watchlist_panel(dependencies):
+    """Show imported price coverage for the companies a user selects."""
     from market_events.config import read_companies
 
     st.markdown("#### Imported watchlist")
@@ -367,6 +403,7 @@ def watchlist_panel(dependencies):
 
 
 def import_panel(dependencies):
+    """Upload or type articles and prices, validating every row before it is saved."""
     from market_events.ingestion import import_articles, import_market_prices
     from market_events.schemas import Article
 
@@ -447,7 +484,13 @@ def import_panel(dependencies):
                 st.error(f"Article was not saved: {exc}")
 
 
+# ---------------------------------------------------------------------------
+# Event research: analyse one article
+# ---------------------------------------------------------------------------
+
+
 def research_panel(dependencies, mode):
+    """Pick an article, cutoff and policy, then explicitly run one analysis."""
     from market_events.config import read_companies
     from market_events.experiments import is_explanation_run
     from market_events.pipeline import analyse_article
@@ -604,7 +647,13 @@ def research_panel(dependencies, mode):
             st.error(f"Analysis failed: {exc}")
 
 
+# ---------------------------------------------------------------------------
+# Saved results, evidence trail and outcomes
+# ---------------------------------------------------------------------------
+
+
 def saved_panel(dependencies):
+    """Inspect a saved run: evidence, sources, model trace, outcome and exports."""
     from market_events.experiments import is_explanation_run
     from market_events.exporting import case_payload
     from market_events.pipeline import explain_run
@@ -814,6 +863,10 @@ def saved_panel(dependencies):
     )
 
 
+# ---------------------------------------------------------------------------
+# Technical indicators
+# ---------------------------------------------------------------------------
+
 INDICATORS = {
     "rsi14": "RSI · 14 sessions",
     "sma20": "Simple moving average · 20 sessions",
@@ -831,6 +884,7 @@ INDICATORS = {
 
 
 def technical_summary(snapshot):
+    """Render a technical snapshot as friendly indicator rows with caveats."""
     st.caption(
         f"Computed at cutoff {snapshot.decision_time.astimezone(IST):%d %b %Y, %H:%M IST} · {snapshot.history_bars} eligible daily bars · {snapshot.definition_version}"
     )
@@ -872,6 +926,7 @@ def technical_summary(snapshot):
 
 
 def technicals_panel(dependencies):
+    """Compute local price indicators for a company at a chosen cutoff."""
     from market_events.config import read_companies
     from market_events.technicals import compute_technicals
 
@@ -970,7 +1025,13 @@ def technicals_panel(dependencies):
         )
 
 
+# ---------------------------------------------------------------------------
+# Connections and explicit live data sync
+# ---------------------------------------------------------------------------
+
+
 def connections_panel(dependencies):
+    """Show provider/model configuration and run explicit live data syncs."""
     from market_events.pipeline import analyse_synced_news, readiness
 
     section_intro(
@@ -1130,7 +1191,13 @@ def connections_panel(dependencies):
                 )
 
 
+# ---------------------------------------------------------------------------
+# Policy comparisons
+# ---------------------------------------------------------------------------
+
+
 def comparisons_panel(dependencies):
+    """Descriptive policy and ablation comparisons over saved runs."""
     from market_events.experiments import run_experiments
     from market_events.pipeline import compute_outcomes
 
@@ -1188,7 +1255,13 @@ def comparisons_panel(dependencies):
     )
 
 
+# ---------------------------------------------------------------------------
+# Entry point and page routing
+# ---------------------------------------------------------------------------
+
+
 def main():
+    """Streamlit entry point: open the workspace and route to the selected panel."""
     st.set_page_config(page_title="Market Events | Research workbench", layout="wide")
     st.markdown(
         """<style>
@@ -1278,11 +1351,10 @@ def main():
         workspace = (str(root), str(path))
         active = st.session_state.get("workspace") == workspace
         current_view = st.session_state.get("workbench_view", "Start")
-        demo = (
-            start_panel(active=active)
-            if not active and current_view == "Start" and not open_workspace
-            else False
-        )
+        # The start page (and its demo button) only shows before a workspace is open.
+        demo = False
+        if not active and current_view == "Start" and not open_workspace:
+            demo = start_panel(active=active)
         if demo:
             with st.spinner("Loading explicitly synthetic replay…"):
                 demo_runs = run_demo(root=root, database_path=path)

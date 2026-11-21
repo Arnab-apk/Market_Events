@@ -1,4 +1,7 @@
-"""Offline imports: valid rows survive neighbouring malformed or duplicate rows."""
+"""Import of articles (JSONL) and market prices (CSV) from local files. Every row is parsed and
+validated on its own, so one bad row produces a readable error while valid neighbours are still
+imported. Nothing is saved here; callers pass the records to Storage.
+"""
 
 import csv
 import io

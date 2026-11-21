@@ -1,4 +1,7 @@
-"""SQLite source/version ledger and immutable analysis snapshots.
+"""The SQLite ledger that stores every article version, observation, event, run, model call and
+outcome. Records are append-only: an identical write is a no-op and a conflicting one raises, so
+saved decisions can never be rewritten. Outcomes live in a separate table and may be recomputed
+without touching runs.
 
 An identical write is idempotent; conflicting identities raise ValueError (or a
 SQLite integrity error for violated foreign keys/unique keys). Outcomes live
@@ -19,6 +22,11 @@ from market_events.schemas import (
     EventOutcome,
     MarketObservation,
 )
+
+
+# ---------------------------------------------------------------------------
+# Serialisation and schema migrations
+# ---------------------------------------------------------------------------
 
 
 def _json(record: BaseModel) -> str:
@@ -177,8 +185,17 @@ def _migrate_v3(connection: sqlite3.Connection) -> None:
     connection.executescript(script + "PRAGMA user_version = 3; COMMIT;")
 
 
+# ---------------------------------------------------------------------------
+# Ledger
+# ---------------------------------------------------------------------------
+
+
 class Storage:
     """One local SQLite connection, with FK enforcement and schema initialization."""
+
+    # ---------------------------------------------------------------------------
+    # Connection lifecycle
+    # ---------------------------------------------------------------------------
 
     def __init__(self, path: Path):
         path = Path(path)
@@ -203,6 +220,7 @@ class Storage:
             raise
 
     def close(self) -> None:
+        """Close the database connection."""
         self.connection.close()
 
     def __enter__(self) -> "Storage":
@@ -210,6 +228,10 @@ class Storage:
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
         self.close()
+
+    # ---------------------------------------------------------------------------
+    # Request reservations (identical analyses are reused)
+    # ---------------------------------------------------------------------------
 
     def claim_request(self, request_key: str, run_id: str) -> bool:
         """Commit a started claim; return False if either key or run is claimed.
@@ -277,6 +299,10 @@ class Storage:
                     raise ValueError("Finished analysis request status is immutable")
                 raise ValueError("Completed analysis request must reference a saved run")
 
+    # ---------------------------------------------------------------------------
+    # Articles and market observations
+    # ---------------------------------------------------------------------------
+
     def add_articles(self, records: Iterable[Article]) -> int:
         """Insert unchanged source versions atomically; never overwrite a correction."""
         count = 0
@@ -307,6 +333,7 @@ class Storage:
         return count
 
     def add_observations(self, records: Iterable[MarketObservation]) -> int:
+        """Save new market observations; returns how many were new."""
         count = 0
         with self.connection:
             for observation in records:
@@ -336,12 +363,14 @@ class Storage:
         return count
 
     def get_article(self, id: str) -> Article | None:
+        """Return the saved article with this ID, if any."""
         row = self.connection.execute(
             "SELECT data FROM articles WHERE article_id = ?", (id,)
         ).fetchone()
         return Article.model_validate_json(row[0]) if row else None
 
     def list_articles(self) -> list[Article]:
+        """All saved articles, by publication time."""
         return [
             Article.model_validate_json(row[0])
             for row in self.connection.execute(
@@ -350,6 +379,7 @@ class Storage:
         ]
 
     def list_observations(self) -> list[MarketObservation]:
+        """All saved market observations, by timestamp."""
         return [
             MarketObservation.model_validate_json(row[0])
             for row in self.connection.execute(
@@ -357,7 +387,12 @@ class Storage:
             )
         ]
 
+    # ---------------------------------------------------------------------------
+    # Events and analysis runs
+    # ---------------------------------------------------------------------------
+
     def list_events(self) -> list[EventExtraction]:
+        """All saved event extractions."""
         return [
             EventExtraction.model_validate_json(row[0])
             for row in self.connection.execute(
@@ -459,12 +494,14 @@ class Storage:
                 )
 
     def get_run(self, id: str) -> AnalysisRun | None:
+        """Return one saved analysis run, if any."""
         row = self.connection.execute(
             "SELECT data FROM analysis_runs WHERE run_id = ?", (id,)
         ).fetchone()
         return AnalysisRun.model_validate_json(row[0]) if row else None
 
     def list_runs(self) -> list[AnalysisRun]:
+        """All saved analysis runs, oldest first."""
         return [
             AnalysisRun.model_validate_json(row[0])
             for row in self.connection.execute(
@@ -472,7 +509,12 @@ class Storage:
             )
         ]
 
+    # ---------------------------------------------------------------------------
+    # Outcomes
+    # ---------------------------------------------------------------------------
+
     def save_outcome(self, outcome: EventOutcome) -> None:
+        """Save or replace the later outcome for a run."""
         with self.connection:
             self.connection.execute(
                 "INSERT INTO outcomes VALUES (?, ?, ?, ?) ON CONFLICT(run_id) DO UPDATE SET "
@@ -481,12 +523,14 @@ class Storage:
             )
 
     def get_outcome(self, run_id: str) -> EventOutcome | None:
+        """Return the saved outcome for a run, if any."""
         row = self.connection.execute(
             "SELECT data FROM outcomes WHERE run_id = ?", (run_id,)
         ).fetchone()
         return EventOutcome.model_validate_json(row[0]) if row else None
 
     def list_outcomes(self) -> list[EventOutcome]:
+        """All saved outcomes."""
         return [
             EventOutcome.model_validate_json(row[0])
             for row in self.connection.execute("SELECT data FROM outcomes ORDER BY run_id")

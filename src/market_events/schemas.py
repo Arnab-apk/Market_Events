@@ -1,4 +1,8 @@
-"""Named records crossing application boundaries; all timestamps are UTC-aware."""
+"""Shared data records (Pydantic models) passed between every module and stored in the ledger:
+articles, observations, events, exposure rules, features, assessments, model calls, runs and
+outcomes. Unknown fields are rejected and every timestamp must be timezone-aware; it is
+normalised to UTC.
+"""
 
 import hashlib
 from datetime import datetime, timezone
@@ -9,6 +13,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validat
 
 
 def utc(value: datetime) -> datetime:
+    """Normalise an aware datetime to UTC; naive datetimes are rejected."""
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("Timestamp must include a timezone")
     return value.astimezone(timezone.utc)
@@ -20,11 +25,17 @@ EventType = Literal[
 ]
 
 
+# Base for all records: unknown fields rejected, assignments re-validated.
+# Prompt-bound subclasses (FilterDecision, ExtractedAmount, EventExtraction)
+# deliberately have no class docstrings: their JSON schema is sent in the live
+# prompt and hashed into request_hash, so a docstring would change requests.
 class Record(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
 class Article(Record):
+    """A source article version; its content hash is computed from the text."""
+
     article_id: str = Field(min_length=1)
     source_url: str = Field(min_length=1)
     text: str = Field(min_length=1)
@@ -36,6 +47,7 @@ class Article(Record):
 
     @model_validator(mode="after")
     def fingerprint(self):
+        """Compute the content hash and check publication ordering."""
         if not self.text.strip():
             raise ValueError("Article text cannot be blank")
         calculated = hashlib.sha256(" ".join(self.text.split()).encode()).hexdigest()
@@ -48,6 +60,8 @@ class Article(Record):
 
 
 class MarketObservation(Record):
+    """One daily OHLCV bar with the time it became available."""
+
     observation_id: str = ""
     instrument_id: str = Field(min_length=1)
     market_family: Literal["equity", "commodity", "benchmark"]
@@ -64,6 +78,7 @@ class MarketObservation(Record):
 
     @model_validator(mode="after")
     def validate_bar(self):
+        """Check OHLC consistency and availability, and derive the observation ID."""
         if self.low > min(self.open, self.close) or self.high < max(self.open, self.close):
             raise ValueError("OHLC relationship is impossible")
         if self.high < self.low:
@@ -81,17 +96,22 @@ class MarketObservation(Record):
 
 
 class ImportResult(Record):
+    """Parsed records plus per-row errors and warnings from an import."""
+
     records: list[Any] = Field(default_factory=list)
     errors: list[dict] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
 
 class ExecutionPolicy(str, Enum):
+    """Which model handles filtering and how much the SLM is trusted."""
+
     llm_only = "llm_only"
     slm_filter = "slm_filter"
     slm_delegate = "slm_delegate"
 
 
+# Filter task answer (prompt-bound schema; see Record).
 class FilterDecision(Record):
     relevance: Literal["relevant", "irrelevant", "uncertain"]
     event_type: EventType = "uncertain"
@@ -101,6 +121,7 @@ class FilterDecision(Record):
     trace_id: str | None = None
 
 
+# One amount quoted in an extraction (prompt-bound schema).
 class ExtractedAmount(Record):
     value: str | float
     unit: str = Field(min_length=1)
@@ -108,6 +129,7 @@ class ExtractedAmount(Record):
     source_span: str = Field(min_length=1)
 
 
+# Extraction task answer (prompt-bound schema; see Record).
 class EventExtraction(Record):
     event_id: str
     source_version: str = "1"
@@ -124,6 +146,8 @@ class EventExtraction(Record):
 
 
 class ExposureRule(Record):
+    """A reviewed company-commodity sensitivity with its validity times."""
+
     company_id: str
     commodity_id: str
     relationship: str
@@ -136,6 +160,8 @@ class ExposureRule(Record):
 
 
 class ExposureMatch(Record):
+    """Result of looking up an exposure rule for an event."""
+
     status: Literal["matched", "missing", "ambiguous", "not_required"]
     rule: ExposureRule | None = None
     reason: str = ""
@@ -157,6 +183,8 @@ class TechnicalSnapshot(Record):
 
 
 class MarketFeatures(Record):
+    """Market evidence values computed at a cutoff, with gaps listed."""
+
     decision_time: AwareTime
     company_id: str | None = None
     values: dict[str, float | None] = Field(default_factory=dict)
@@ -167,6 +195,8 @@ class MarketFeatures(Record):
 
 
 class Assessment(Record):
+    """Deterministic evidence result: direction, score, coverage, reasons."""
+
     direction: Literal["positive", "negative", "neutral", "abstain"]
     evidence_score: float | None = None
     coverage: float = Field(ge=0, le=1)
@@ -181,6 +211,7 @@ class Assessment(Record):
 
     @model_validator(mode="after")
     def display_label(self):
+        """Derive the guide-compatible evidence label."""
         label = "insufficient_evidence"
         if self.direction != "abstain":
             if self.conflicts or self.direction == "neutral":
@@ -192,6 +223,8 @@ class Assessment(Record):
 
 
 class ModelCall(Record):
+    """Audit record of one model (or replay) call."""
+
     trace_id: str
     run_id: str
     task: str
@@ -211,6 +244,8 @@ class ModelCall(Record):
 
 
 class AnalysisRun(Record):
+    """Everything saved for one analysis, from snapshot to assessment."""
+
     run_id: str
     article_id: str
     event_id: str | None = None
@@ -236,6 +271,8 @@ class AnalysisRun(Record):
 
 
 class EventOutcome(Record):
+    """Later hypothetical return for a run, kept apart from the decision."""
+
     run_id: str
     status: Literal["pending", "completed", "invalid"]
     entry_time: AwareTime | None = None

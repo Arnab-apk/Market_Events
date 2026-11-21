@@ -108,3 +108,18 @@ def test_snapshot_never_contains_api_keys():
     config = settings()
     config.llm.api_key = "secret"
     assert "api_key" not in config.snapshot()["llm"]
+
+
+def test_prompt_bound_schemas_carry_no_docstring_descriptions():
+    """These schemas are embedded in live prompts and hashed into request_hash.
+
+    A class docstring would become a schema "description" and silently change every
+    live model request, so documentation for them must stay in comments.
+    """
+    from market_events.agents.explanation_agent import Explanation
+    from market_events.schemas import EventExtraction, ExtractedAmount
+
+    for model in (FilterDecision, EventExtraction, ExtractedAmount, Explanation):
+        assert model.__doc__ is None, model.__name__
+        schema = json.dumps(model.model_json_schema())
+        assert '"description"' not in schema, model.__name__

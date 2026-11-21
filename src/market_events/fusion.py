@@ -1,4 +1,8 @@
-"""Versioned deterministic evidence; scores are not probabilities."""
+"""Deterministic evidence scoring (the 'fusion' step). It combines the equity reaction and, for
+commodity events, the exposure-signed commodity move into a score in [-1, 1], with coverage,
+conflicts and abstention reasons. Rules come from configs/fusion_rules.json; the score is
+evidence, not a probability.
+"""
 
 import math
 from copy import deepcopy

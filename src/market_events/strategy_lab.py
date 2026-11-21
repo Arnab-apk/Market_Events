@@ -1,4 +1,7 @@
-"""Pure retrospective research with causal indicators and next-open fills.
+"""Calculations behind the strategy lab: history selection, causal indicators, a long/cash backtest
+with next-open fills and costs, a probabilistic Sharpe ratio and a block-bootstrap Monte Carlo.
+Everything is pure local computation on history ending by 2020-12-31; nothing is persisted or
+downloaded here.
 
 Historical availability is preserved, not simulated: these are retrospective OHLC
 experiments, not assertions that today's downloaded bars were known in 2020.
@@ -16,6 +19,10 @@ import numpy as np
 
 from .schemas import MarketObservation, utc
 from .technicals import _directional, _smooth
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
 HISTORY_END = date(2020, 12, 31)
 _EXCHANGE = ZoneInfo("Asia/Kolkata")
@@ -43,6 +50,11 @@ _INDICATORS = (
     "atr14",
     "adx14",
 )
+
+
+# ---------------------------------------------------------------------------
+# Input validation
+# ---------------------------------------------------------------------------
 
 
 def _session(row: MarketObservation) -> date:
@@ -104,6 +116,11 @@ def _validated_bars(bars: list[MarketObservation]) -> list[MarketObservation]:
     return sorted(rows, key=lambda row: row.timestamp)
 
 
+# ---------------------------------------------------------------------------
+# History selection
+# ---------------------------------------------------------------------------
+
+
 def prepare_history(
     observations: list[MarketObservation],
     instrument_id: str,
@@ -140,6 +157,11 @@ def prepare_history(
     if not rows:
         raise ValueError("No eligible historical bars in the selected window")
     return rows
+
+
+# ---------------------------------------------------------------------------
+# Indicators
+# ---------------------------------------------------------------------------
 
 
 def _ma(closes: list[float], period: int, exponential: bool = False) -> list[float | None]:
@@ -204,6 +226,11 @@ def indicator_series(bars: list[MarketObservation]) -> dict[str, list[dict]]:
         ]
         for key, series in values.items()
     }
+
+
+# ---------------------------------------------------------------------------
+# Backtest
+# ---------------------------------------------------------------------------
 
 
 def _signals(rows, strategy, fast_period, slow_period, rsi_buy, rsi_sell):
@@ -409,6 +436,11 @@ def run_backtest(
     return result
 
 
+# ---------------------------------------------------------------------------
+# Backtest statistics and finite-result checks
+# ---------------------------------------------------------------------------
+
+
 def probabilistic_sharpe(returns: list[float], benchmark_sharpe: float = 0.0) -> float | None:
     """Probabilistic Sharpe ratio, Bailey & López de Prado (2012/2014).
 
@@ -451,6 +483,11 @@ def _finite_result(value) -> None:
     elif isinstance(value, list):
         for item in value:
             _finite_result(item)
+
+
+# ---------------------------------------------------------------------------
+# Monte Carlo bootstrap
+# ---------------------------------------------------------------------------
 
 
 def monte_carlo(

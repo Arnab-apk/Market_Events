@@ -1,4 +1,8 @@
-"""Conservative, deterministic source memory within the collected dataset."""
+"""Source memory: decide whether an article is new, a duplicate, an update or unresolved before any
+model call. Only sources published and first seen by the cutoff count, and only an explicit
+predecessor proves an update. pipeline.py uses the result to skip duplicates and withhold
+assessments on unclear history.
+"""
 
 from datetime import datetime
 

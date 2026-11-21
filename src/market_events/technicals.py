@@ -1,4 +1,6 @@
-"""Deterministic daily technical context; no trading advice or probability.
+"""Technical indicator snapshot for one company at a cutoff (SMA, EMA, RSI, MACD, Bollinger, ATR,
+ADX). It only uses bars that existed and were available by the cutoff and is saved with each run
+as context; it never changes the event score and is not trading advice.
 
 Version technicals-v1 uses closes for SMA/EMA/RSI/MACD/Bollinger, and OHLC
 for ATR/ADX. Only the requested equity's timestamp AND available_at <= cutoff

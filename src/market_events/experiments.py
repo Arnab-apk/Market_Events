@@ -1,4 +1,8 @@
-"""Descriptive saved-run comparisons, without model calls or database mutation."""
+"""Descriptive comparisons over saved runs, for the policy-comparison view. It summarises usage per
+policy, re-runs equity-only versus equity+commodity ablations on saved inputs, and checks
+extraction agreement with authored gold labels. It never calls a model or changes the database,
+and makes no claim of predictive validation.
+"""
 
 import hashlib
 import json

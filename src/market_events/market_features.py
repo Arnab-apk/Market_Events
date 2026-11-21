@@ -1,4 +1,7 @@
-"""Daily fractional returns, aligned benchmarks and preceding-five-session volume."""
+"""Market evidence at a decision cutoff. From observations that existed and were available by the
+cutoff, it computes the latest equity, benchmark, excess and commodity daily returns plus
+relative volume. Missing or stale inputs stay explicit so fusion can abstain instead of guessing.
+"""
 
 from datetime import datetime, timedelta
 

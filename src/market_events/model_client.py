@@ -1,4 +1,7 @@
-"""Two small HTTP adapters plus labelled fixture replay and bounded call accounting."""
+"""The single gateway to language models. ``ask`` sends one structured task to an Ollama or OpenAI-
+compatible endpoint, or in replay mode returns the recorded synthetic fixture output. Every call
+is budgeted and logged as a ModelCall so saved runs keep a full audit trail.
+"""
 
 import hashlib
 import json
@@ -14,10 +17,14 @@ from .schemas import Article, ModelCall
 
 
 class ModelError(RuntimeError):
+    """A model call failed or no recorded replay exists for the task."""
+
     pass
 
 
 class BudgetExceeded(ModelError):
+    """The per-run request or token admission budget is used up."""
+
     pass
 
 
@@ -39,6 +46,11 @@ class ModelClient:
         role: str = "llm",
         context: dict | None = None,
     ) -> BaseModel:
+        """Run one task and return a validated ``schema`` instance.
+
+        The prompt file, article and JSON schema form the request; each attempt is
+        recorded in ``self.calls``. Replay mode never contacts a model.
+        """
         model = getattr(self.settings, role)
         prompt_name = {
             "filter": "filter_event",

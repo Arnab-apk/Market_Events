@@ -1,7 +1,7 @@
-"""Run a small, labelled synthetic grounding pilot on configured local models.
-
-This measures fixture recall and protocol reliability, not predictive performance.
-Usage: .venv/Scripts/python.exe scripts/benchmark_models.py --limit 30
+"""Developer script: a small, labelled synthetic grounding pilot on configured local models. It
+sends bundled synthetic articles to the live filter and extraction models and records how often
+outputs are grounded and well-formed. This measures fixture recall and protocol reliability, not
+predictive performance. Usage: .venv/Scripts/python.exe scripts/benchmark_models.py --limit 30
 """
 
 import argparse
@@ -19,6 +19,7 @@ from market_events.model_client import ModelClient, ModelError
 
 
 def main():
+    """Run the pilot and write a labelled JSON report to --output."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, default=30)
     parser.add_argument("--extractions", type=int, default=3)

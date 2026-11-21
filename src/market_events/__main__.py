@@ -1,4 +1,8 @@
-"""Small command line interface; numerical rules remain in domain modules."""
+"""Command line interface (``python -m market_events ...``). Each subcommand opens the configured
+ledger and calls one public workflow: demo, import, analyse, outcomes, export, experiments,
+technicals or explicit live syncs. Numerical rules stay in the domain modules; this file only
+parses arguments and prints results.
+"""
 
 import argparse
 import json
@@ -21,6 +25,7 @@ from .storage import Storage
 
 
 def main(argv=None):
+    """Parse arguments, run one subcommand and return a process exit code."""
     parser = argparse.ArgumentParser(description="Local financial event research")
     parser.add_argument("--root", type=Path, default=Path("."))
     parser.add_argument("--database", type=Path)

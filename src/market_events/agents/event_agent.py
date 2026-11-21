@@ -1,4 +1,7 @@
-"""Structured extraction with source grounding and canonical entity checks."""
+"""Step 2 of an analysis: structured event extraction. The model proposes an event type, company,
+commodity and amounts; this module accepts them only when every quoted passage and amount appears
+in the article, and re-resolves the company from the configured aliases.
+"""
 
 import hashlib
 import re
@@ -12,6 +15,11 @@ def _present(alias: str, text: str) -> bool:
 
 
 def extract_event(article: Article, client, companies=None, delegated=None) -> EventExtraction:
+    """Ask for a structured event and keep it only if it is grounded in the source.
+
+    Unsupported passages or amounts mark the extraction ``unsupported``; a company
+    the source does not name unambiguously leaves it ``unresolved``.
+    """
     companies = companies or []
     context = {"companies": companies}
     if delegated:
