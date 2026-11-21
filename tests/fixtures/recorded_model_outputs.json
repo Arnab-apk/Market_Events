@@ -1,0 +1,1018 @@
+{
+  "syn-001": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "source_spans": [
+        "Asian Paints reports synthetic quarterly earnings growth of 12 percent."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-001",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Asian Paints reports synthetic quarterly earnings growth of 12 percent."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-002": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "commodity_supply_disruption",
+      "candidate_entities": [
+        "Berger Paints"
+      ],
+      "source_spans": [
+        "Berger Paints faces synthetic input cost pressure after a crude oil supply disruption."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-002",
+      "event_type": "commodity_supply_disruption",
+      "company_id": "NSE:BERGEPAINT",
+      "candidate_entities": [
+        "Berger Paints"
+      ],
+      "commodity_id": "MCX:CRUDEOIL",
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Berger Paints faces synthetic input cost pressure after a crude oil supply disruption."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-003": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "order_announcement",
+      "candidate_entities": [
+        "Pidilite Industries"
+      ],
+      "source_spans": [
+        "Pidilite Industries announces a synthetic order of INR 100 million."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-003",
+      "event_type": "order_announcement",
+      "company_id": "NSE:PIDILITIND",
+      "candidate_entities": [
+        "Pidilite Industries"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Pidilite Industries announces a synthetic order of INR 100 million."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-004": {
+    "filter": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "candidate_entities": [
+        "IndiGo"
+      ],
+      "source_spans": [
+        "IndiGo sponsors a synthetic community arts event."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-004",
+      "event_type": "other",
+      "company_id": "NSE:INDIGO",
+      "candidate_entities": [
+        "IndiGo"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "IndiGo sponsors a synthetic community arts event."
+      ],
+      "validation_status": "unresolved",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-005": {
+    "filter": {
+      "relevance": "uncertain",
+      "event_type": "uncertain",
+      "candidate_entities": [
+        "SpiceJet"
+      ],
+      "source_spans": [
+        "An unconfirmed synthetic report mentions SpiceJet without a clear financial event."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-005",
+      "event_type": "uncertain",
+      "company_id": "NSE:SPICEJET",
+      "candidate_entities": [
+        "SpiceJet"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "An unconfirmed synthetic report mentions SpiceJet without a clear financial event."
+      ],
+      "validation_status": "unresolved",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-006": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "source_spans": [
+        "Asian Paints reports synthetic quarterly earnings growth of 12 percent."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-006",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Asian Paints reports synthetic quarterly earnings growth of 12 percent."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-007": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "order_announcement",
+      "candidate_entities": [
+        "Berger Paints"
+      ],
+      "source_spans": [
+        "Berger Paints announces a synthetic order of INR 100 million."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-007",
+      "event_type": "order_announcement",
+      "company_id": "NSE:BERGEPAINT",
+      "candidate_entities": [
+        "Berger Paints"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Berger Paints announces a synthetic order of INR 100 million."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-008": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "commodity_supply_disruption",
+      "candidate_entities": [
+        "Pidilite Industries"
+      ],
+      "source_spans": [
+        "Pidilite Industries faces synthetic input cost pressure after a crude oil supply disruption."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-008",
+      "event_type": "commodity_supply_disruption",
+      "company_id": "NSE:PIDILITIND",
+      "candidate_entities": [
+        "Pidilite Industries"
+      ],
+      "commodity_id": "MCX:CRUDEOIL",
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Pidilite Industries faces synthetic input cost pressure after a crude oil supply disruption."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-009": {
+    "filter": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "candidate_entities": [
+        "IndiGo"
+      ],
+      "source_spans": [
+        "IndiGo sponsors a synthetic community arts event."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-009",
+      "event_type": "other",
+      "company_id": "NSE:INDIGO",
+      "candidate_entities": [
+        "IndiGo"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "IndiGo sponsors a synthetic community arts event."
+      ],
+      "validation_status": "unresolved",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-010": {
+    "filter": {
+      "relevance": "uncertain",
+      "event_type": "uncertain",
+      "candidate_entities": [
+        "SpiceJet"
+      ],
+      "source_spans": [
+        "An unconfirmed synthetic report mentions SpiceJet without a clear financial event."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-010",
+      "event_type": "uncertain",
+      "company_id": "NSE:SPICEJET",
+      "candidate_entities": [
+        "SpiceJet"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "An unconfirmed synthetic report mentions SpiceJet without a clear financial event."
+      ],
+      "validation_status": "unresolved",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-011": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "source_spans": [
+        "Asian Paints reports synthetic quarterly earnings growth of 12 percent."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-011",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Asian Paints reports synthetic quarterly earnings growth of 12 percent."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-012": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "order_announcement",
+      "candidate_entities": [
+        "Berger Paints"
+      ],
+      "source_spans": [
+        "Berger Paints announces a synthetic order of INR 100 million."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-012",
+      "event_type": "order_announcement",
+      "company_id": "NSE:BERGEPAINT",
+      "candidate_entities": [
+        "Berger Paints"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Berger Paints announces a synthetic order of INR 100 million."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-013": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "commodity_supply_disruption",
+      "candidate_entities": [
+        "Pidilite Industries"
+      ],
+      "source_spans": [
+        "Pidilite Industries faces synthetic input cost pressure after a crude oil supply disruption."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-013",
+      "event_type": "commodity_supply_disruption",
+      "company_id": "NSE:PIDILITIND",
+      "candidate_entities": [
+        "Pidilite Industries"
+      ],
+      "commodity_id": "MCX:CRUDEOIL",
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Pidilite Industries faces synthetic input cost pressure after a crude oil supply disruption."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-014": {
+    "filter": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "candidate_entities": [
+        "IndiGo"
+      ],
+      "source_spans": [
+        "IndiGo sponsors a synthetic community arts event."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-014",
+      "event_type": "other",
+      "company_id": "NSE:INDIGO",
+      "candidate_entities": [
+        "IndiGo"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "IndiGo sponsors a synthetic community arts event."
+      ],
+      "validation_status": "unresolved",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-015": {
+    "filter": {
+      "relevance": "uncertain",
+      "event_type": "uncertain",
+      "candidate_entities": [
+        "SpiceJet"
+      ],
+      "source_spans": [
+        "An unconfirmed synthetic report mentions SpiceJet without a clear financial event."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-015",
+      "event_type": "uncertain",
+      "company_id": "NSE:SPICEJET",
+      "candidate_entities": [
+        "SpiceJet"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "An unconfirmed synthetic report mentions SpiceJet without a clear financial event."
+      ],
+      "validation_status": "unresolved",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-016": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "source_spans": [
+        "Asian Paints reports synthetic quarterly earnings growth of 12 percent."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-016",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Asian Paints reports synthetic quarterly earnings growth of 12 percent."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-017": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "order_announcement",
+      "candidate_entities": [
+        "Berger Paints"
+      ],
+      "source_spans": [
+        "Berger Paints announces a synthetic order of INR 100 million."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-017",
+      "event_type": "order_announcement",
+      "company_id": "NSE:BERGEPAINT",
+      "candidate_entities": [
+        "Berger Paints"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Berger Paints announces a synthetic order of INR 100 million."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-018": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "commodity_supply_disruption",
+      "candidate_entities": [
+        "Pidilite Industries"
+      ],
+      "source_spans": [
+        "Pidilite Industries faces synthetic input cost pressure after a crude oil supply disruption."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-018",
+      "event_type": "commodity_supply_disruption",
+      "company_id": "NSE:PIDILITIND",
+      "candidate_entities": [
+        "Pidilite Industries"
+      ],
+      "commodity_id": "MCX:CRUDEOIL",
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Pidilite Industries faces synthetic input cost pressure after a crude oil supply disruption."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-019": {
+    "filter": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "candidate_entities": [
+        "IndiGo"
+      ],
+      "source_spans": [
+        "IndiGo sponsors a synthetic community arts event."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-019",
+      "event_type": "other",
+      "company_id": "NSE:INDIGO",
+      "candidate_entities": [
+        "IndiGo"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "IndiGo sponsors a synthetic community arts event."
+      ],
+      "validation_status": "unresolved",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-020": {
+    "filter": {
+      "relevance": "uncertain",
+      "event_type": "uncertain",
+      "candidate_entities": [
+        "SpiceJet"
+      ],
+      "source_spans": [
+        "An unconfirmed synthetic report mentions SpiceJet without a clear financial event."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-020",
+      "event_type": "uncertain",
+      "company_id": "NSE:SPICEJET",
+      "candidate_entities": [
+        "SpiceJet"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "An unconfirmed synthetic report mentions SpiceJet without a clear financial event."
+      ],
+      "validation_status": "unresolved",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-021": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "source_spans": [
+        "Asian Paints reports synthetic quarterly earnings growth of 12 percent."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-021",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Asian Paints reports synthetic quarterly earnings growth of 12 percent."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-022": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "order_announcement",
+      "candidate_entities": [
+        "Berger Paints"
+      ],
+      "source_spans": [
+        "Berger Paints announces a synthetic order of INR 100 million."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-022",
+      "event_type": "order_announcement",
+      "company_id": "NSE:BERGEPAINT",
+      "candidate_entities": [
+        "Berger Paints"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Berger Paints announces a synthetic order of INR 100 million."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-023": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "commodity_supply_disruption",
+      "candidate_entities": [
+        "Pidilite Industries"
+      ],
+      "source_spans": [
+        "Pidilite Industries faces synthetic input cost pressure after a crude oil supply disruption."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-023",
+      "event_type": "commodity_supply_disruption",
+      "company_id": "NSE:PIDILITIND",
+      "candidate_entities": [
+        "Pidilite Industries"
+      ],
+      "commodity_id": "MCX:CRUDEOIL",
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Pidilite Industries faces synthetic input cost pressure after a crude oil supply disruption."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-024": {
+    "filter": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "candidate_entities": [
+        "IndiGo"
+      ],
+      "source_spans": [
+        "IndiGo sponsors a synthetic community arts event."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-024",
+      "event_type": "other",
+      "company_id": "NSE:INDIGO",
+      "candidate_entities": [
+        "IndiGo"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "IndiGo sponsors a synthetic community arts event."
+      ],
+      "validation_status": "unresolved",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-025": {
+    "filter": {
+      "relevance": "uncertain",
+      "event_type": "uncertain",
+      "candidate_entities": [
+        "SpiceJet"
+      ],
+      "source_spans": [
+        "An unconfirmed synthetic report mentions SpiceJet without a clear financial event."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-025",
+      "event_type": "uncertain",
+      "company_id": "NSE:SPICEJET",
+      "candidate_entities": [
+        "SpiceJet"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "An unconfirmed synthetic report mentions SpiceJet without a clear financial event."
+      ],
+      "validation_status": "unresolved",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-026": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "source_spans": [
+        "Asian Paints reports synthetic quarterly earnings growth of 12 percent."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-026",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Asian Paints reports synthetic quarterly earnings growth of 12 percent."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-027": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "order_announcement",
+      "candidate_entities": [
+        "Berger Paints"
+      ],
+      "source_spans": [
+        "Berger Paints announces a synthetic order of INR 100 million."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-027",
+      "event_type": "order_announcement",
+      "company_id": "NSE:BERGEPAINT",
+      "candidate_entities": [
+        "Berger Paints"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Berger Paints announces a synthetic order of INR 100 million."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-028": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "commodity_supply_disruption",
+      "candidate_entities": [
+        "Pidilite Industries"
+      ],
+      "source_spans": [
+        "Pidilite Industries faces synthetic input cost pressure after a crude oil supply disruption."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-028",
+      "event_type": "commodity_supply_disruption",
+      "company_id": "NSE:PIDILITIND",
+      "candidate_entities": [
+        "Pidilite Industries"
+      ],
+      "commodity_id": "MCX:CRUDEOIL",
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Pidilite Industries faces synthetic input cost pressure after a crude oil supply disruption."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-029": {
+    "filter": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "candidate_entities": [
+        "IndiGo"
+      ],
+      "source_spans": [
+        "IndiGo sponsors a synthetic community arts event."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-029",
+      "event_type": "other",
+      "company_id": "NSE:INDIGO",
+      "candidate_entities": [
+        "IndiGo"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "IndiGo sponsors a synthetic community arts event."
+      ],
+      "validation_status": "unresolved",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-030": {
+    "filter": {
+      "relevance": "uncertain",
+      "event_type": "uncertain",
+      "candidate_entities": [
+        "SpiceJet"
+      ],
+      "source_spans": [
+        "An unconfirmed synthetic report mentions SpiceJet without a clear financial event."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-030",
+      "event_type": "uncertain",
+      "company_id": "NSE:SPICEJET",
+      "candidate_entities": [
+        "SpiceJet"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "An unconfirmed synthetic report mentions SpiceJet without a clear financial event."
+      ],
+      "validation_status": "unresolved",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-031": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "source_spans": [
+        "Asian Paints reports synthetic quarterly earnings growth of 12 percent."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-001",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Asian Paints reports synthetic quarterly earnings growth of 12 percent."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-032": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "source_spans": [
+        "Asian Paints revises synthetic quarterly earnings growth from 12 percent to 18 percent."
+      ],
+      "reason": "Authored synthetic replay of a same-company revised earnings update; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-032",
+      "source_version": "2",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "candidate_entities": [
+        "Asian Paints"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Asian Paints revises synthetic quarterly earnings growth from 12 percent to 18 percent."
+      ],
+      "validation_status": "validated",
+      "reason": "Synthetic version 2 revises Asian Paints earnings growth to 18 percent from the predecessor report of 12 percent"
+    }
+  },
+  "syn-033": {
+    "filter": {
+      "relevance": "relevant",
+      "event_type": "commodity_supply_disruption",
+      "candidate_entities": [
+        "Pidilite Industries"
+      ],
+      "source_spans": [
+        "Pidilite Industries faces synthetic input cost pressure after a crude oil supply disruption."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-033",
+      "event_type": "commodity_supply_disruption",
+      "company_id": "NSE:PIDILITIND",
+      "candidate_entities": [
+        "Pidilite Industries"
+      ],
+      "commodity_id": "MCX:CRUDEOIL",
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "Pidilite Industries faces synthetic input cost pressure after a crude oil supply disruption."
+      ],
+      "validation_status": "validated",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-034": {
+    "filter": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "candidate_entities": [
+        "IndiGo"
+      ],
+      "source_spans": [
+        "IndiGo sponsors a synthetic community arts event."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-034",
+      "event_type": "other",
+      "company_id": "NSE:INDIGO",
+      "candidate_entities": [
+        "IndiGo"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "IndiGo sponsors a synthetic community arts event."
+      ],
+      "validation_status": "unresolved",
+      "reason": "Authored synthetic supported extraction"
+    }
+  },
+  "syn-035": {
+    "filter": {
+      "relevance": "uncertain",
+      "event_type": "uncertain",
+      "candidate_entities": [
+        "SpiceJet"
+      ],
+      "source_spans": [
+        "An unconfirmed synthetic report mentions SpiceJet without a clear financial event."
+      ],
+      "reason": "Authored synthetic replay fixture; no actual model inference"
+    },
+    "extraction": {
+      "event_id": "event-syn-035",
+      "event_type": "uncertain",
+      "company_id": "NSE:SPICEJET",
+      "candidate_entities": [
+        "SpiceJet"
+      ],
+      "commodity_id": null,
+      "direction": "uncertain",
+      "amounts": [],
+      "source_spans": [
+        "An unconfirmed synthetic report mentions SpiceJet without a clear financial event."
+      ],
+      "validation_status": "unresolved",
+      "reason": "Authored synthetic supported extraction"
+    }
+  }
+}

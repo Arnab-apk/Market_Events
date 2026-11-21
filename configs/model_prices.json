@@ -1,0 +1,13 @@
+{
+  "version": "model-prices-v1",
+  "currency": "USD",
+  "source": "Fill in from your provider's published price list; no rates are bundled.",
+  "note": "Optional. estimated_cost is computed only for live runs whose every call reports input and output tokens and matches a provider/model entry here; otherwise it is null. Missing token counts are never filled in.",
+  "models": [],
+  "example_entry": {
+    "provider": "openai_compatible",
+    "model": "<model id>",
+    "input_per_1k": 0.0,
+    "output_per_1k": 0.0
+  }
+}

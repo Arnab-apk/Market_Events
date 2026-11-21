@@ -1,0 +1,12 @@
+{
+  "version": "live-nse-v1",
+  "source": "https://upstox.com/developer/api-documentation/instruments/",
+  "instruments": [
+    {"instrument_id": "LIVE:NSE:ASIANPAINT", "name": "Asian Paints", "trading_symbol": "ASIANPAINT", "provider_instrument_key": null, "exchange": "NSE", "currency": "INR", "unit": "share", "market_family": "equity", "aliases": ["AsianPaint"], "sector": "materials", "benchmark_id": "LIVE:NSE:NIFTY50", "source": "https://upstox.com/developer/api-documentation/instruments/"},
+    {"instrument_id": "LIVE:NSE:BERGEPAINT", "name": "Berger Paints", "trading_symbol": "BERGEPAINT", "provider_instrument_key": null, "exchange": "NSE", "currency": "INR", "unit": "share", "market_family": "equity", "aliases": ["Berger"], "sector": "materials", "benchmark_id": "LIVE:NSE:NIFTY50", "source": "https://upstox.com/developer/api-documentation/instruments/"},
+    {"instrument_id": "LIVE:NSE:PIDILITIND", "name": "Pidilite Industries", "trading_symbol": "PIDILITIND", "provider_instrument_key": null, "exchange": "NSE", "currency": "INR", "unit": "share", "market_family": "equity", "aliases": ["Pidilite"], "sector": "materials", "benchmark_id": "LIVE:NSE:NIFTY50", "source": "https://upstox.com/developer/api-documentation/instruments/"},
+    {"instrument_id": "LIVE:NSE:INDIGO", "name": "InterGlobe Aviation", "trading_symbol": "INDIGO", "provider_instrument_key": null, "exchange": "NSE", "currency": "INR", "unit": "share", "market_family": "equity", "aliases": ["IndiGo", "InterGlobe"], "sector": "aviation", "benchmark_id": "LIVE:NSE:NIFTY50", "source": "https://upstox.com/developer/api-documentation/instruments/"},
+    {"instrument_id": "LIVE:NSE:RELIANCE", "name": "Reliance Industries", "trading_symbol": "RELIANCE", "provider_instrument_key": null, "exchange": "NSE", "currency": "INR", "unit": "share", "market_family": "equity", "aliases": ["Reliance"], "sector": "energy", "benchmark_id": "LIVE:NSE:NIFTY50", "source": "https://upstox.com/developer/api-documentation/instruments/"},
+    {"instrument_id": "LIVE:NSE:NIFTY50", "name": "Nifty 50", "trading_symbol": "Nifty 50", "provider_instrument_key": null, "exchange": "NSE", "currency": "INR", "unit": "index_point", "market_family": "benchmark", "aliases": [], "sector": "benchmark", "benchmark_id": null, "source": "https://upstox.com/developer/api-documentation/instruments/"}
+  ]
+}

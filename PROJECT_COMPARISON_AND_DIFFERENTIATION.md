@@ -6,6 +6,8 @@
 **Date:** 24 October 2026  
 **Purpose:** Compare your synopsis with your friend's supplied outline and identify practical, measurable differences to build.
 
+**MVP build specification:** See [MVP implementation guide](MVP_IMPLEMENTATION_GUIDE.md) for the current first-release scope, module responsibilities, readability conventions and milestone acceptance criteria. The broader features below are staged beyond that MVP where the guide says so.
+
 **Architecture revision:** Your latest decision supersedes the original synopsis's separate VLM tier. The current plan uses an SLM for filtering and suitable low-level tasks, an LLM for complex event analysis and explanations, and deterministic quantitative modules. There is no separate VLM model, agent or required vision experiment. If image interpretation is useful later, it may use the selected LLM's verified multimodal capability.
 
 ## 1. Recommendation

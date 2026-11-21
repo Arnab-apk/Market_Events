@@ -1,0 +1,13 @@
+{
+  "name": "market-events-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev-web.mjs",
+    "dev:ui": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "start": "npm --prefix web run start",
+    "check": "npm --prefix web run check",
+    "test:web": "npm --prefix web run test:e2e",
+    "test:proxy": "node --test web/tests/request-origin.test.mjs"
+  }
+}

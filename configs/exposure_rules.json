@@ -1,0 +1,57 @@
+[
+  {
+    "company_id": "NSE:ASIANPAINT",
+    "commodity_id": "MCX:CRUDEOIL",
+    "relationship": "Conceptual synthetic input-cost sensitivity assumption; not empirically validated",
+    "source": "Synthetic demonstration reviewed assumption, not a real filing",
+    "direction": -1,
+    "effective_at": "2026-01-01T00:00:00Z",
+    "known_at": "2026-01-01T00:00:00Z",
+    "version": "synthetic-v1",
+    "rule_id": "synthetic-crude-0"
+  },
+  {
+    "company_id": "NSE:BERGEPAINT",
+    "commodity_id": "MCX:CRUDEOIL",
+    "relationship": "Conceptual synthetic input-cost sensitivity assumption; not empirically validated",
+    "source": "Synthetic demonstration reviewed assumption, not a real filing",
+    "direction": -1,
+    "effective_at": "2026-01-01T00:00:00Z",
+    "known_at": "2026-01-01T00:00:00Z",
+    "version": "synthetic-v1",
+    "rule_id": "synthetic-crude-1"
+  },
+  {
+    "company_id": "NSE:PIDILITIND",
+    "commodity_id": "MCX:CRUDEOIL",
+    "relationship": "Conceptual synthetic input-cost sensitivity assumption; not empirically validated",
+    "source": "Synthetic demonstration reviewed assumption, not a real filing",
+    "direction": -1,
+    "effective_at": "2026-01-01T00:00:00Z",
+    "known_at": "2026-01-01T00:00:00Z",
+    "version": "synthetic-v1",
+    "rule_id": "synthetic-crude-2"
+  },
+  {
+    "company_id": "NSE:INDIGO",
+    "commodity_id": "MCX:CRUDEOIL",
+    "relationship": "Conceptual synthetic input-cost sensitivity assumption; not empirically validated",
+    "source": "Synthetic demonstration reviewed assumption, not a real filing",
+    "direction": -1,
+    "effective_at": "2026-01-01T00:00:00Z",
+    "known_at": "2026-01-01T00:00:00Z",
+    "version": "synthetic-v1",
+    "rule_id": "synthetic-crude-3"
+  },
+  {
+    "company_id": "NSE:SPICEJET",
+    "commodity_id": "MCX:CRUDEOIL",
+    "relationship": "Conceptual synthetic input-cost sensitivity assumption; not empirically validated",
+    "source": "Synthetic demonstration reviewed assumption, not a real filing",
+    "direction": -1,
+    "effective_at": "2026-01-01T00:00:00Z",
+    "known_at": "2026-01-01T00:00:00Z",
+    "version": "synthetic-v1",
+    "rule_id": "synthetic-crude-4"
+  }
+]

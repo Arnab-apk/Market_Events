@@ -1,0 +1,13 @@
+[
+  {
+    "instrument_id": "SYNTHETIC:LAB_DEMO",
+    "name": "Synthetic lab series (QA only)",
+    "trading_symbol": "SYNLAB",
+    "aliases": [],
+    "sector": "synthetic_lab",
+    "benchmark_id": null,
+    "market_family": "equity",
+    "synthetic": true,
+    "source": "tests/fixtures/synthetic_lab_history.csv: authored seeded zero-drift random walk, not market data. Interface verification only; not performance evidence."
+  }
+]

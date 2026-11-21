@@ -1,0 +1,49 @@
+[
+  {
+    "instrument_id": "NSE:ASIANPAINT",
+    "name": "Asian Paints",
+    "aliases": [
+      "Asian Paints",
+      "AsianPaint"
+    ],
+    "sector": "materials",
+    "benchmark_id": "NSE:NIFTY_MATERIALS"
+  },
+  {
+    "instrument_id": "NSE:BERGEPAINT",
+    "name": "Berger Paints",
+    "aliases": [
+      "Berger"
+    ],
+    "sector": "materials",
+    "benchmark_id": "NSE:NIFTY_MATERIALS"
+  },
+  {
+    "instrument_id": "NSE:PIDILITIND",
+    "name": "Pidilite Industries",
+    "aliases": [
+      "Pidilite"
+    ],
+    "sector": "materials",
+    "benchmark_id": "NSE:NIFTY_MATERIALS"
+  },
+  {
+    "instrument_id": "NSE:INDIGO",
+    "name": "IndiGo",
+    "aliases": [
+      "InterGlobe Aviation",
+      "Indigo"
+    ],
+    "sector": "aviation",
+    "benchmark_id": "NSE:NIFTY_TRANSPORT"
+  },
+  {
+    "instrument_id": "NSE:SPICEJET",
+    "name": "SpiceJet",
+    "aliases": [
+      "Spice Jet"
+    ],
+    "sector": "aviation",
+    "benchmark_id": "NSE:NIFTY_TRANSPORT"
+  }
+]

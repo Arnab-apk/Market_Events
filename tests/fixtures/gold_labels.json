@@ -1,0 +1,222 @@
+{
+  "version": "gold-synthetic-v1",
+  "provenance": "Authored by hand from the text of the bundled synthetic articles (tests/fixtures/articles.jsonl). Single annotator; no inter-annotator agreement measured. Synthetic sanity check on authored articles, not a benchmark.",
+  "guidelines": {
+    "relevance": "relevant only when the text states a supported financial event (earnings, order, commodity supply disruption) for a demo-universe company; an unconfirmed mention without a clear financial event is irrelevant",
+    "event_type": "event family stated by the text; 'other' when no financial event is stated",
+    "company_id": "demo-universe instrument named in the text",
+    "commodity_id": "commodity stated as the channel of a supply disruption, else null"
+  },
+  "labels": {
+    "syn-001": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "commodity_id": null
+    },
+    "syn-002": {
+      "relevance": "relevant",
+      "event_type": "commodity_supply_disruption",
+      "company_id": "NSE:BERGEPAINT",
+      "commodity_id": "MCX:CRUDEOIL"
+    },
+    "syn-003": {
+      "relevance": "relevant",
+      "event_type": "order_announcement",
+      "company_id": "NSE:PIDILITIND",
+      "commodity_id": null
+    },
+    "syn-004": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "company_id": "NSE:INDIGO",
+      "commodity_id": null
+    },
+    "syn-005": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "company_id": "NSE:SPICEJET",
+      "commodity_id": null
+    },
+    "syn-006": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "commodity_id": null
+    },
+    "syn-007": {
+      "relevance": "relevant",
+      "event_type": "order_announcement",
+      "company_id": "NSE:BERGEPAINT",
+      "commodity_id": null
+    },
+    "syn-008": {
+      "relevance": "relevant",
+      "event_type": "commodity_supply_disruption",
+      "company_id": "NSE:PIDILITIND",
+      "commodity_id": "MCX:CRUDEOIL"
+    },
+    "syn-009": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "company_id": "NSE:INDIGO",
+      "commodity_id": null
+    },
+    "syn-010": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "company_id": "NSE:SPICEJET",
+      "commodity_id": null
+    },
+    "syn-011": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "commodity_id": null
+    },
+    "syn-012": {
+      "relevance": "relevant",
+      "event_type": "order_announcement",
+      "company_id": "NSE:BERGEPAINT",
+      "commodity_id": null
+    },
+    "syn-013": {
+      "relevance": "relevant",
+      "event_type": "commodity_supply_disruption",
+      "company_id": "NSE:PIDILITIND",
+      "commodity_id": "MCX:CRUDEOIL"
+    },
+    "syn-014": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "company_id": "NSE:INDIGO",
+      "commodity_id": null
+    },
+    "syn-015": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "company_id": "NSE:SPICEJET",
+      "commodity_id": null
+    },
+    "syn-016": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "commodity_id": null
+    },
+    "syn-017": {
+      "relevance": "relevant",
+      "event_type": "order_announcement",
+      "company_id": "NSE:BERGEPAINT",
+      "commodity_id": null
+    },
+    "syn-018": {
+      "relevance": "relevant",
+      "event_type": "commodity_supply_disruption",
+      "company_id": "NSE:PIDILITIND",
+      "commodity_id": "MCX:CRUDEOIL"
+    },
+    "syn-019": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "company_id": "NSE:INDIGO",
+      "commodity_id": null
+    },
+    "syn-020": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "company_id": "NSE:SPICEJET",
+      "commodity_id": null
+    },
+    "syn-021": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "commodity_id": null
+    },
+    "syn-022": {
+      "relevance": "relevant",
+      "event_type": "order_announcement",
+      "company_id": "NSE:BERGEPAINT",
+      "commodity_id": null
+    },
+    "syn-023": {
+      "relevance": "relevant",
+      "event_type": "commodity_supply_disruption",
+      "company_id": "NSE:PIDILITIND",
+      "commodity_id": "MCX:CRUDEOIL"
+    },
+    "syn-024": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "company_id": "NSE:INDIGO",
+      "commodity_id": null
+    },
+    "syn-025": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "company_id": "NSE:SPICEJET",
+      "commodity_id": null
+    },
+    "syn-026": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "commodity_id": null
+    },
+    "syn-027": {
+      "relevance": "relevant",
+      "event_type": "order_announcement",
+      "company_id": "NSE:BERGEPAINT",
+      "commodity_id": null
+    },
+    "syn-028": {
+      "relevance": "relevant",
+      "event_type": "commodity_supply_disruption",
+      "company_id": "NSE:PIDILITIND",
+      "commodity_id": "MCX:CRUDEOIL"
+    },
+    "syn-029": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "company_id": "NSE:INDIGO",
+      "commodity_id": null
+    },
+    "syn-030": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "company_id": "NSE:SPICEJET",
+      "commodity_id": null
+    },
+    "syn-031": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "commodity_id": null
+    },
+    "syn-032": {
+      "relevance": "relevant",
+      "event_type": "earnings",
+      "company_id": "NSE:ASIANPAINT",
+      "commodity_id": null
+    },
+    "syn-033": {
+      "relevance": "relevant",
+      "event_type": "commodity_supply_disruption",
+      "company_id": "NSE:PIDILITIND",
+      "commodity_id": "MCX:CRUDEOIL"
+    },
+    "syn-034": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "company_id": "NSE:INDIGO",
+      "commodity_id": null
+    },
+    "syn-035": {
+      "relevance": "irrelevant",
+      "event_type": "other",
+      "company_id": "NSE:SPICEJET",
+      "commodity_id": null
+    }
+  }
+}

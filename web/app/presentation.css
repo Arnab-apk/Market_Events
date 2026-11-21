@@ -1,0 +1,66 @@
+/* Presentation readiness: new evidence/outcome elements and projector-legible minimum sizes.
+   Loaded last so it refines, rather than replaces, the existing theme files. */
+
+/* Run summary */
+:root .run-summary h3 { margin: 22px 0 10px; font-size: 15px; color: var(--mode-text); }
+:root .stat-item small { display: block; margin-top: 4px; font-size: 12px; color: var(--mode-muted); }
+:root .stat-list.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+:root .stat-item strong.direction-green { color: var(--mode-success); }
+:root .stat-item strong.direction-red { color: var(--mode-danger); }
+:root .stat-item strong.direction-neutral { color: var(--mode-text); }
+:root .footnote { font-size: 12.5px; line-height: 1.6; color: var(--mode-muted); margin: 12px 0; }
+:root .evidence-table td.numeric, :root td.numeric { font-family: var(--mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; }
+:root .cell-note { display: block; margin-top: 3px; font-size: 12px; color: var(--mode-muted); font-weight: 400; }
+
+/* Synthetic marker on source rows */
+:root .synthetic-tag {
+  display: inline-block; margin-right: 8px; padding: 1px 7px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--mode-warning); background: var(--mode-warning-bg); border: 1px solid var(--mode-warning);
+}
+
+/* Later outcome, visually separate from the decision */
+:root .outcome-card {
+  margin: 8px 0 18px; padding: 18px 20px; border-radius: 14px;
+  border: 1px dashed var(--mode-input-border); background: var(--mode-raised);
+}
+:root .outcome-card h3 { margin: 0; font-size: 15px; color: var(--mode-text); }
+:root .outcome-card .subheading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+:root .outcome-card.pending p { margin: 6px 0 0; color: var(--mode-muted); font-size: 13px; }
+:root .outcome-card .stat-list { margin: 14px 0 6px; }
+
+/* Projector legibility on laptop/desktop widths (≥1101px). Mobile sizes are unchanged. */
+@media (min-width: 1101px) {
+  :root .stat-item span, :root .metric > span, :root .metric .metric-label { font-size: 12.5px; }
+  :root .field small, :root .form-actions p, :root .source-meta { font-size: 12.5px; }
+  :root table td, :root table th { font-size: 13px; }
+  :root .json-view summary { font-size: 13px; }
+  :root .json-view pre { font-size: 12px; }
+  :root .main-footer, :root .main-footer > .text-button { font-size: 12px; }
+  :root .selection-item small { font-size: 12px; }
+}
+@media (max-width: 900px) {
+  :root .stat-list.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Source inbox rows must not be squeezed by the scrolling flex column (clipped second line). */
+:root .selection-item { flex-shrink: 0; }
+@media (min-width: 1101px) { :root .selection-item strong { font-size: 13.5px; line-height: 1.5; } }
+:root .selection-item small { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+
+/* Reveal the skip link for keyboard focus only, not after programmatic/mouse focus moves. */
+.skip-link:focus:not(:focus-visible) { top: -100px; }
+
+/* Strategy lab: five headline metrics when the probabilistic Sharpe ratio is available. */
+@media (min-width: 1101px) { :root .metric-grid.five { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+/* Overview ticker strip: 6–9px labels are unreadable on a projector. */
+@media (min-width: 1101px) {
+  :root .premium-ticker > button { font-size: 11px; padding: 8px 10px; gap: 6px; }
+  :root .premium-ticker strong { font-size: 11px; }
+  :root .premium-ticker small { font-size: 10.5px; }
+  :root .premium-ticker .premium-token { width: 20px; height: 20px; font-size: 10px; }
+  :root .premium-ticker-note { font-size: 9px; }
+}
+/* Keep the "saved data / not live" label on screen at laptop widths; session counts stay in the table below. */
+@media (min-width: 1101px) and (max-width: 1500px) { :root .premium-ticker small { display: none; } }

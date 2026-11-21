@@ -1,0 +1,27 @@
+{
+  "version": "fusion-v1",
+  "weights": {
+    "equity": 0.6,
+    "commodity": 0.4
+  },
+  "scales": {
+    "equity": 0.02,
+    "commodity": 0.03
+  },
+  "threshold": 0.15,
+  "minimum_coverage": 0.6,
+  "required_features": {
+    "earnings": [
+      "excess_return"
+    ],
+    "order_announcement": [
+      "excess_return"
+    ],
+    "commodity_supply_disruption": [
+      "excess_return",
+      "commodity_return",
+      "exposure"
+    ]
+  },
+  "provenance": "Frozen conceptual demonstration policy, not calibrated probabilities"
+}

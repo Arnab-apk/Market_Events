@@ -1,0 +1,373 @@
+{
+  "syn-001": {
+    "features": {
+      "decision_time": "2026-01-12T12:00:00Z",
+      "company_id": "NSE:ASIANPAINT",
+      "values": {
+        "equity_return": 0.009999999524267222,
+        "benchmark_return": 0.001999999841590494,
+        "excess_return": 0.007999999682676728,
+        "relative_volume": 1.2307692307692308,
+        "commodity_return": null
+      },
+      "observation_ids": [
+        "1ee5ad0187a3405b9b98e6fd",
+        "3e3054a53fb0446ffc477642",
+        "524b350df764392e0f00cc0e",
+        "953357909f28438eaacc879c",
+        "d53a1524c776c6ffb5c3c2d9",
+        "d748f6bf0e94ee5a266cf8d7",
+        "e8e647903c5c78d3c18fc7d8",
+        "fc55491e75c89daeb5e532cd"
+      ],
+      "missing": [
+        "commodity_return"
+      ],
+      "stale": [],
+      "definition_version": "features-v1"
+    },
+    "assessment": {
+      "direction": "positive",
+      "evidence_score": 0.3999999841338364,
+      "coverage": 1.0,
+      "conflicts": [],
+      "abstention_reasons": [],
+      "inputs": {
+        "features": {
+          "decision_time": "2026-01-12T12:00:00Z",
+          "company_id": "NSE:ASIANPAINT",
+          "values": {
+            "equity_return": 0.009999999524267222,
+            "benchmark_return": 0.001999999841590494,
+            "excess_return": 0.007999999682676728,
+            "relative_volume": 1.2307692307692308,
+            "commodity_return": null
+          },
+          "observation_ids": [
+            "1ee5ad0187a3405b9b98e6fd",
+            "3e3054a53fb0446ffc477642",
+            "524b350df764392e0f00cc0e",
+            "953357909f28438eaacc879c",
+            "d53a1524c776c6ffb5c3c2d9",
+            "d748f6bf0e94ee5a266cf8d7",
+            "e8e647903c5c78d3c18fc7d8",
+            "fc55491e75c89daeb5e532cd"
+          ],
+          "missing": [
+            "commodity_return"
+          ],
+          "stale": [],
+          "definition_version": "features-v1"
+        },
+        "components": {
+          "equity": 0.3999999841338364
+        },
+        "weights": {
+          "equity": 1.0
+        },
+        "rules": {
+          "version": "fusion-v1",
+          "weights": {
+            "equity": 0.6,
+            "commodity": 0.4
+          },
+          "scales": {
+            "equity": 0.02,
+            "commodity": 0.03
+          },
+          "threshold": 0.15,
+          "minimum_coverage": 0.6,
+          "required_features": {
+            "earnings": [
+              "excess_return"
+            ],
+            "order_announcement": [
+              "excess_return"
+            ],
+            "commodity_supply_disruption": [
+              "excess_return",
+              "commodity_return",
+              "exposure"
+            ]
+          },
+          "provenance": "Frozen conceptual demonstration policy, not calibrated probabilities"
+        },
+        "include_commodity": true,
+        "exposure": {
+          "status": "not_required",
+          "rule": null,
+          "reason": "No commodity relationship requested"
+        }
+      },
+      "rules_version": "fusion-v1",
+      "explanation": "positive: evidence score 0.3999999841338364; coverage 1.00. Mandatory evidence available. Score is deterministic evidence, not a probability."
+    },
+    "outcome": {
+      "run_id": "expected-syn-001",
+      "status": "completed",
+      "entry_time": "2026-01-13T03:45:00Z",
+      "exit_time": "2026-01-19T10:00:00Z",
+      "entry_price": 106.680134,
+      "exit_price": 111.566835,
+      "gross_return": 0.0458070384501017,
+      "net_return": 0.0448070384501017,
+      "benchmark_return": 0.009032057238858915,
+      "excess_return": 0.036774981211242785,
+      "label": "positive",
+      "reason": "Completed five observed sessions; exchange-calendar completeness not verified; costs are round-trip basis points",
+      "definition_version": "outcome-v1"
+    }
+  },
+  "syn-002": {
+    "features": {
+      "decision_time": "2026-01-12T12:00:00Z",
+      "company_id": "NSE:BERGEPAINT",
+      "values": {
+        "equity_return": 0.009999999492551703,
+        "benchmark_return": 0.001999999841590494,
+        "excess_return": 0.00799999965096121,
+        "relative_volume": 1.2307692307692308,
+        "commodity_return": 0.014999999938115849
+      },
+      "observation_ids": [
+        "08196dac07cfdac643f4eec0",
+        "25631c16f6151e085b5a370f",
+        "38c924de06c051a61c7adae8",
+        "4f46a23e5b6b1b5c34aa844d",
+        "6c80b3efef1997410df38bf1",
+        "a318d03be5caea2c8d34f733",
+        "acfdb324fb91446723316ffe",
+        "c1e794e9448d840b1c628af8",
+        "d53a1524c776c6ffb5c3c2d9",
+        "e8e647903c5c78d3c18fc7d8"
+      ],
+      "missing": [],
+      "stale": [],
+      "definition_version": "features-v1"
+    },
+    "assessment": {
+      "direction": "neutral",
+      "evidence_score": 0.03999999035395829,
+      "coverage": 1.0,
+      "conflicts": [
+        "Equity and exposure-adjusted commodity evidence disagree"
+      ],
+      "abstention_reasons": [],
+      "inputs": {
+        "features": {
+          "decision_time": "2026-01-12T12:00:00Z",
+          "company_id": "NSE:BERGEPAINT",
+          "values": {
+            "equity_return": 0.009999999492551703,
+            "benchmark_return": 0.001999999841590494,
+            "excess_return": 0.00799999965096121,
+            "relative_volume": 1.2307692307692308,
+            "commodity_return": 0.014999999938115849
+          },
+          "observation_ids": [
+            "08196dac07cfdac643f4eec0",
+            "25631c16f6151e085b5a370f",
+            "38c924de06c051a61c7adae8",
+            "4f46a23e5b6b1b5c34aa844d",
+            "6c80b3efef1997410df38bf1",
+            "a318d03be5caea2c8d34f733",
+            "acfdb324fb91446723316ffe",
+            "c1e794e9448d840b1c628af8",
+            "d53a1524c776c6ffb5c3c2d9",
+            "e8e647903c5c78d3c18fc7d8"
+          ],
+          "missing": [],
+          "stale": [],
+          "definition_version": "features-v1"
+        },
+        "components": {
+          "equity": 0.39999998254806046,
+          "commodity": -0.49999999793719496
+        },
+        "weights": {
+          "equity": 0.6,
+          "commodity": 0.4
+        },
+        "rules": {
+          "version": "fusion-v1",
+          "weights": {
+            "equity": 0.6,
+            "commodity": 0.4
+          },
+          "scales": {
+            "equity": 0.02,
+            "commodity": 0.03
+          },
+          "threshold": 0.15,
+          "minimum_coverage": 0.6,
+          "required_features": {
+            "earnings": [
+              "excess_return"
+            ],
+            "order_announcement": [
+              "excess_return"
+            ],
+            "commodity_supply_disruption": [
+              "excess_return",
+              "commodity_return",
+              "exposure"
+            ]
+          },
+          "provenance": "Frozen conceptual demonstration policy, not calibrated probabilities"
+        },
+        "include_commodity": true,
+        "exposure": {
+          "status": "matched",
+          "rule": {
+            "company_id": "NSE:BERGEPAINT",
+            "commodity_id": "MCX:CRUDEOIL",
+            "relationship": "Conceptual synthetic input-cost sensitivity assumption; not empirically validated",
+            "source": "Synthetic demonstration reviewed assumption, not a real filing",
+            "direction": -1,
+            "effective_at": "2026-01-01T00:00:00Z",
+            "known_at": "2026-01-01T00:00:00Z",
+            "version": "synthetic-v1",
+            "rule_id": "synthetic-crude-1"
+          },
+          "reason": ""
+        }
+      },
+      "rules_version": "fusion-v1",
+      "explanation": "neutral: evidence score 0.03999999035395829; coverage 1.00. Equity and exposure-adjusted commodity evidence disagree Score is deterministic evidence, not a probability."
+    },
+    "outcome": {
+      "run_id": "expected-syn-002",
+      "status": "completed",
+      "entry_time": "2026-01-13T03:45:00Z",
+      "exit_time": "2026-01-19T10:00:00Z",
+      "entry_price": 160.020202,
+      "exit_price": 167.350252,
+      "gross_return": 0.045807028790027404,
+      "net_return": 0.0448070287900274,
+      "benchmark_return": 0.009032057238858915,
+      "excess_return": 0.03677497155116849,
+      "label": "positive",
+      "reason": "Completed five observed sessions; exchange-calendar completeness not verified; costs are round-trip basis points",
+      "definition_version": "outcome-v1"
+    }
+  },
+  "syn-003": {
+    "features": {
+      "decision_time": "2026-01-12T12:00:00Z",
+      "company_id": "NSE:PIDILITIND",
+      "values": {
+        "equity_return": 0.009999999524267222,
+        "benchmark_return": 0.001999999841590494,
+        "excess_return": 0.007999999682676728,
+        "relative_volume": 1.2307692307692308,
+        "commodity_return": null
+      },
+      "observation_ids": [
+        "1bf2c6fbce039e4c5996d3ad",
+        "37392a5d32b79e7173fa56ad",
+        "3b2e6b4abc44056603e899b6",
+        "407c23a563241cd706b422ce",
+        "4b4f31a215e4532c95ba1d46",
+        "ab331bf527b327ef1bfbba1b",
+        "d53a1524c776c6ffb5c3c2d9",
+        "e8e647903c5c78d3c18fc7d8"
+      ],
+      "missing": [
+        "commodity_return"
+      ],
+      "stale": [],
+      "definition_version": "features-v1"
+    },
+    "assessment": {
+      "direction": "positive",
+      "evidence_score": 0.3999999841338364,
+      "coverage": 1.0,
+      "conflicts": [],
+      "abstention_reasons": [],
+      "inputs": {
+        "features": {
+          "decision_time": "2026-01-12T12:00:00Z",
+          "company_id": "NSE:PIDILITIND",
+          "values": {
+            "equity_return": 0.009999999524267222,
+            "benchmark_return": 0.001999999841590494,
+            "excess_return": 0.007999999682676728,
+            "relative_volume": 1.2307692307692308,
+            "commodity_return": null
+          },
+          "observation_ids": [
+            "1bf2c6fbce039e4c5996d3ad",
+            "37392a5d32b79e7173fa56ad",
+            "3b2e6b4abc44056603e899b6",
+            "407c23a563241cd706b422ce",
+            "4b4f31a215e4532c95ba1d46",
+            "ab331bf527b327ef1bfbba1b",
+            "d53a1524c776c6ffb5c3c2d9",
+            "e8e647903c5c78d3c18fc7d8"
+          ],
+          "missing": [
+            "commodity_return"
+          ],
+          "stale": [],
+          "definition_version": "features-v1"
+        },
+        "components": {
+          "equity": 0.3999999841338364
+        },
+        "weights": {
+          "equity": 1.0
+        },
+        "rules": {
+          "version": "fusion-v1",
+          "weights": {
+            "equity": 0.6,
+            "commodity": 0.4
+          },
+          "scales": {
+            "equity": 0.02,
+            "commodity": 0.03
+          },
+          "threshold": 0.15,
+          "minimum_coverage": 0.6,
+          "required_features": {
+            "earnings": [
+              "excess_return"
+            ],
+            "order_announcement": [
+              "excess_return"
+            ],
+            "commodity_supply_disruption": [
+              "excess_return",
+              "commodity_return",
+              "exposure"
+            ]
+          },
+          "provenance": "Frozen conceptual demonstration policy, not calibrated probabilities"
+        },
+        "include_commodity": true,
+        "exposure": {
+          "status": "not_required",
+          "rule": null,
+          "reason": "No commodity relationship requested"
+        }
+      },
+      "rules_version": "fusion-v1",
+      "explanation": "positive: evidence score 0.3999999841338364; coverage 1.00. Mandatory evidence available. Score is deterministic evidence, not a probability."
+    },
+    "outcome": {
+      "run_id": "expected-syn-003",
+      "status": "completed",
+      "entry_time": "2026-01-13T03:45:00Z",
+      "exit_time": "2026-01-19T10:00:00Z",
+      "entry_price": 213.360269,
+      "exit_price": 223.133669,
+      "gross_return": 0.045807028861591936,
+      "net_return": 0.044807028861591935,
+      "benchmark_return": 0.009032057238858915,
+      "excess_return": 0.03677497162273302,
+      "label": "positive",
+      "reason": "Completed five observed sessions; exchange-calendar completeness not verified; costs are round-trip basis points",
+      "definition_version": "outcome-v1"
+    }
+  }
+}

@@ -339,3 +339,320 @@ Fewer large-model tokens do not automatically mean lower total cost or latency. 
 Before full integration, benchmark a small SLM candidate on 20-30 reviewed pilot items on the actual available machine or endpoint. Verify JSON reliability, relevant-event recall, latency and resource use. Select the LLM with the same evidence-grounding check. Record exact model/provider identities and limitations in `MODEL_AND_PROMPT_NOTES.md`.
 
 No particular GPU, paid API or model size is assumed. If the selected SLM cannot run acceptably, revise its hosting/model choice and record the decision. Recorded replay can unblock UI development, but the complete MVP requires a demonstrated real SLM and LLM path.
+
+## 8. Cross-market evidence and fusion
+
+### 8.1 Small reviewed exposure configuration
+
+For one commodity family, list the selected companies, the proposed exposure, source evidence and limitations. A relationship might describe input-cost pressure for a consumer of that commodity. It is a hypothesis, not a universal price-direction rule.
+
+Record the source and `known_at` time of company-specific information. A current exposure description must not silently appear in a historical replay before it was known. Start with manually reviewed mappings; the LLM may suggest a candidate for review, but must not add it automatically to active scoring rules.
+
+Use actual instrument and contract identities. Commodity futures need an explicit contract/expiry and roll policy. For the first demonstration, a single documented contract over a bounded interval avoids needing to build a continuous series immediately. An international benchmark is not automatically equivalent to an MCX instrument.
+
+### 8.2 Minimum numerical features
+
+Implement only these initial features, with full definitions in `DATA_DICTIONARY.md`:
+
+- Equity return over one predefined prior-session lookback.
+- Equity return relative to a comparable sector/index observation over that same interval.
+- Relative volume against earlier completed sessions, excluding the current session from its own baseline.
+- Commodity return over an explicitly aligned interval available before the decision cutoff.
+- Freshness and missing-input flags, separate from directional measurements.
+
+Avoid forward-filling across missing sessions unless a specific feature definition justifies it. If the required earlier window is unavailable, mark the feature missing. Corporate-action handling must be consistent within each return calculation.
+
+### 8.3 Start with a fixed, transparent policy
+
+`fusion_rules.json` defines which features are required for each event family, their direction conventions, documented weights and abstention conditions. For commodity events, compare an equity-only policy with an equity-plus-commodity policy. Earnings and order events need not request commodity data when it has no reviewed relevance.
+
+Keep the evidence score, coverage and direction label separate. Predefined normalization and thresholds belong in configuration with a version, not scattered constants in Python. Zero-denominator or mandatory-input failures produce `insufficient_evidence`. Missing commodity evidence is never a neutral commodity return.
+
+Initial outputs are `positive_evidence`, `negative_evidence`, `mixed_evidence` or `insufficient_evidence`. These labels describe the assessment policy; they are not calibrated probabilities or instructions to trade.
+
+The LLM explanation receives the computed assessment, source spans and observation references. It may explain uncertainty but cannot change the numerical score. Provide a readable deterministic template whenever the optional explanation call fails.
+
+## 9. Outcome tracking and evaluation
+
+### 9.1 A practical outcome definition
+
+For an eligible end-of-day decision, use the next valid exchange-session open as the hypothetical entry. Define the five-session outcome as the close of the fifth eligible equity session **counting the entry session as session one**. This is a fixed definition for the MVP, not a claim that it is the optimal investment horizon.
+
+Report stock return and a consistently timed benchmark comparison. When a split or other corporate action crosses the interval, use a fully consistent adjustment/accounting policy or mark that outcome invalid until support exists. Do not mix adjusted closing prices with raw opening prices.
+
+If fees/slippage are not configured, label the result gross and do not display it as net profit. If costs are supported, document the exact hypothetical transaction and cost assumptions. Independent event outcomes are not funded portfolio returns and must not be summed into a portfolio equity curve.
+
+Use exchange-session data rather than adding calendar days. Missing future observations leave the outcome `pending`; they must not be replaced with an invented return. Save the outcome separately from the immutable original assessment.
+
+### 9.2 Minimum comparisons
+
+| Comparison | Hold constant | Measure |
+| --- | --- | --- |
+| Equity-only versus equity-plus-commodity | Same eligible events, dates, exposure mappings and numerical definitions | Subsequent outcome association, coverage, disagreement and failures |
+| LLM-only versus SLM filtering | Same incoming article set, final task and LLM configuration | Recall, extraction quality, calls, tokens and latency |
+| Filtering versus filtering plus delegation | Same source evidence, validation and model versions | Incremental token/latency savings and lost/changed facts |
+
+Use a reviewed pilot for prompt/routing development and a separate later chronological evaluation set. Keep related story versions together. If future-return labels overlap a split boundary, exclude or purge the conflicting samples. Report sample counts and do not claim reliable superiority from a small pilot.
+
+Historical models may already know historical outcomes. Do not supply future labels to agents; document model timing limitations and start a prospective frozen-run ledger once the pipeline is stable. The MVP's first evaluation demonstrates reproducibility and preliminary behaviour, not established profitability.
+
+### 9.3 Useful counters
+
+Show relevant-event recall, entity/extraction correctness on reviewed examples, invalid-output rate, accepted/abstained counts, per-model token usage, escalation rate, median/p95 latency where sample size supports it, and missing-data failures. Unknown provider usage is reported as unavailable.
+
+For cross-model token reporting, retain separate counts and tokenizer/provider identities. Raw tokens from different tokenizers are not interchangeable units of computation. Monetary cost and measured latency should be recorded separately.
+
+## 10. Dashboard behaviour
+
+Use four ordinary views or tabs. This is a functional layout specification, not a requirement for a separate frontend framework.
+
+| View | Required interactions | Information shown |
+| --- | --- | --- |
+| Import and watchlist | Import article/price files; inspect validation errors; select configured companies | Source, coverage interval, accepted/rejected rows and latest observation |
+| Event inbox | Filter by company/type/status; select an article; explicitly start analysis | New/duplicate/update candidates, source time and analysis status |
+| Event evidence | Inspect extraction, exposure, market evidence, conflicts; request optional explanation | Source passages, timestamps, score/coverage, missing inputs and run ID |
+| Outcomes and runs | Inspect completed/pending outcomes; compare policies; export a run | Saved results, model usage, timings, errors and evaluation sample counts |
+
+Analysis must run only after an explicit submit action. Store a request/run identifier and reuse completed results when the UI reruns. Disabling a button is not the only duplication defence: storage needs an idempotency key derived from source version, cutoff, policy and configuration/model versions. Explicit repeat experiments create separate linked run IDs.
+
+Streamlit reruns scripts after interactions; its documented [forms](https://docs.streamlit.io/develop/concepts/architecture/forms) batch user input. Use these for analysis submission. Its [caching](https://docs.streamlit.io/develop/concepts/architecture/caching) can help with reusable reads/resources, but SQLite remains the source of truth for completed runs. Do not cache writes or rely on session state as the only durable history. Keep cache keys tied to data/configuration versions and freshness.
+
+The interface must distinguish `live_model`, `recorded_replay`, `synthetic_fixture` and `imported_historical_data`. A recorded response is not fresh model inference, and a current model analysing an old article is not a historically available forecast.
+
+## 11. Readability and maintenance rules
+
+### 11.1 Naming and organization
+
+- Use financial names that explain meaning: `relative_volume`, `decision_time`, `source_version` and `missing_required_inputs`.
+- Use `snake_case` for functions/files, `PascalCase` for schemas/classes and clear enum values.
+- Prefer one function for one understandable operation. A processing function should not also draw widgets, execute SQL and perform HTTP calls.
+- Use plain branching and named intermediate values rather than nested comprehensions or clever one-liners.
+- Use classes for useful state/lifecycles such as a client or database connection; pure calculations should remain functions.
+- Avoid catch-all files named `utils.py`, `helpers.py` or `manager.py`. Put a helper beside the feature it supports.
+- Avoid duplicated event schemas or parallel implementations of the same score in the UI and backend.
+- Split a module when it contains multiple responsibilities or becomes difficult to explain; do not split every tiny function into a separate file.
+
+### 11.2 Types, comments and docstrings
+
+Type public function inputs and outputs. Public financial functions should describe units, time assumptions, missing-data behaviour and their return type. Comments should explain a financial or engineering reason, not translate obvious Python into English.
+
+Good explanatory comment:
+
+```python
+# Use only earlier sessions so today's volume cannot inflate its own baseline.
+historical_volume = completed_sessions.iloc[:-1]["volume"]
+```
+
+For every numerical formula, document one worked example and its edge cases. Keep notebooks for exploration only; move accepted logic into the package so a demo does not depend on cells executed in an unknown order.
+
+### 11.3 Error handling and configuration
+
+Use a small set of named errors/statuses such as `InvalidImport`, `AmbiguousEntity`, `MissingMarketData`, `ModelUnavailable` and `InvalidModelOutput`. Catch errors at the layer that can act on them. Avoid `except Exception: pass` or replacing a failed feature with zero.
+
+Keep timeouts, data paths, allowed model identifiers, output limits, feature windows and scoring settings in validated configuration. Prompts live in `prompts/`, not inside UI code. Store prompt/configuration hashes in runs so a Git revision alone is not the only way to reconstruct them.
+
+### 11.4 Change discipline
+
+Implement one milestone at a time and keep a working end-to-end path. Use small commits with clear messages. Do not leave abandoned alternative implementations, unused frameworks, copied demo projects or unexplained scripts in the repository.
+
+Format and lint with a shared [Ruff configuration](https://docs.astral.sh/ruff/). Choose a small initial rule set for basic errors, imports and readable code; introduce stricter checks only when the team understands them. Passing a formatter does not replace reviewing financial assumptions.
+
+## 12. Documentation required during implementation
+
+Documentation is part of each milestone's completion, not a task left for the submission week.
+
+| File | Required content | When to update |
+| --- | --- | --- |
+| `README.md` | What works now, setup, commands, sample workflow, limitations and links | Every delivered feature |
+| `CODEBASE_GUIDE.md` | Module map, dependency direction, reading order and one traced example | When module responsibilities change |
+| `DATA_DICTIONARY.md` | Fields, units, IDs, timestamps, formulas and missing values | Every schema/feature change |
+| `MODEL_AND_PROMPT_NOTES.md` | Task ownership, actual models, prompt versions, routing and failure examples | Every model/prompt-policy change |
+| `EXPERIMENTS.md` | Dataset versions, splits, configurations, metrics and negative results | Every comparison run |
+| `DECISIONS.md` | Date, decision, reason, alternatives and consequence | Each important scope/design decision |
+| `IMPLEMENTATION_LOG.md` | Completed work, touched modules, verification evidence and limitations | At the end of every implementation milestone |
+| `DEMO_AND_VIVA.md` | Demo commands, cases, architecture explanation and questions | As the end-to-end path grows |
+| `tests/fixtures/README.md` | Whether each fixture is synthetic/real/recorded, source rights and expected behaviour | Whenever fixtures change |
+
+### A useful implementation-log entry
+
+```markdown
+### M3 - SLM filtering and extraction
+
+- Status: completed / partial / blocked
+- Implemented: describe the actual user-visible behaviour.
+- Modules: list the files and each file's responsibility.
+- Verified: record the command, result, date and model/data configuration.
+- Known limitations: state failures or missing coverage.
+- Documentation updated: list the corresponding guide sections.
+- Next dependency: identify the next concrete deliverable.
+```
+
+Do not mark a milestone complete because code was generated or a UI tab exists. Record a working example and relevant verification. When AI assists implementation, the team still needs a plain-language explanation of the accepted change.
+
+## 13. Build milestones
+
+This is a sequence with exit criteria, not a promised calendar. Work availability, model access and real data determine duration. Do not build later-stage infrastructure while an earlier end-to-end path is broken.
+
+| Milestone | Work to implement | Exit criterion |
+| --- | --- | --- |
+| M0: scaffold | Package, configuration, schemas, test tools, README and documentation index | Fresh environment imports the package; documented checks run |
+| M1: valid data | Article/market imports, canonical companies, SQLite and fixture manifests | Valid files load; malformed/duplicate rows receive explicit handling |
+| M2: numerical path | Eligible equity/commodity features, reviewed mappings and deterministic assessment | One stored cross-market assessment works without relying on model-generated numbers |
+| M3: model integration | Real SLM filtering, low-level tasks, LLM extraction, source validation and usage traces | Reviewed pilot includes accepted, irrelevant, ambiguous and failed-model cases |
+| M4: event workflow | Event memory, full pipeline, idempotency, explicit reanalysis and template explanations | Replaying an article does not create a duplicate catalyst or accidental paid call |
+| M5: dashboard | Four views, submit actions, evidence display, stored run reads and export | User completes import-to-assessment from the local interface |
+| M6: outcomes and comparisons | Five-session outcome tracker and the three execution policies | Common-input comparison exports quality/resource data with pending outcomes handled |
+| M7: handover | Relevant tests, locked environment, recorded replay, code map and viva demo | Another teammate reproduces a representative run using only the README |
+
+Implement M2 with clearly labelled validated example extraction objects before M3. This keeps integration moving without pretending a stub is a real model. M7 must include a documented actual-model run; replay is the resilient demo path, not a substitute for implementation.
+
+For each milestone, update `IMPLEMENTATION_LOG.md` and demonstrate the current path to another team member. Everyone should be able to locate the schema, main pipeline and score calculation without assistance.
+
+## 14. Tests and verification
+
+Use tests that protect important behaviour rather than assertions that mirror every implementation line.
+
+| Area | Important examples |
+| --- | --- |
+| Imports | Invalid OHLC, unknown identifiers, duplicate keys, missing timezones and contradictory source versions |
+| Temporal eligibility | After-cutoff article excluded; future market row excluded; historical mapping not yet known excluded |
+| Event memory | Exact duplicate linked correctly; genuine source update preserved; similar but distinct events not silently merged |
+| Routing | Irrelevant item retained in logs; uncertain item escalates; invalid low-level extraction falls back without losing evidence |
+| Features | Known return example; zero/missing volume denominator; current session excluded from historical volume baseline |
+| Fusion | Required commodity missing produces abstention; conflicting inputs stay visible; score is not labelled a probability |
+| Model integration | Timeout, unavailable usage, invalid JSON, unsupported source span and bounded retries |
+| Outcomes | Entry follows decision; fifth-session convention; pending horizon; corporate-action invalidation and gross/net labelling |
+| Persistence | Repeated request idempotency; failed run visible; completed assessment not overwritten by later outcomes |
+| End-to-end | A synthetic fixture exercises the full numerical flow and matches a reviewed expected result |
+
+Keep automated tests offline by default, using small synthetic observations and recorded provider responses. Mark optional real-provider smoke checks explicitly and invoke them deliberately; do not spend tokens on every routine test run.
+
+Manual verification should cover at least five cases: a clear event, an irrelevant article, a duplicate/update, conflicting cross-market evidence and missing/stale market data. Confirm that changing an unrelated dashboard filter does not create a new model call.
+
+## 15. Setup and planned commands
+
+These are **target commands for the implementation**, not commands that currently work in this documentation-only repository. Implement each command with `argparse` in `__main__.py` and verify the final README against a clean environment.
+
+### 15.1 Planned Windows setup
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.lock
+.\.venv\Scripts\python.exe -m pip install --no-deps -e .
+```
+
+The implementation must first declare package/build metadata in `pyproject.toml`, generate the lockfile from the chosen clean environment and document its Python/platform compatibility. Document how development tooling is installed or included in that tested lock. Do not publish invented version pins before trying the environment.
+
+Configure SLM/LLM endpoints, model identifiers and credentials through `.env` or the process environment, with non-secret defaults in an example configuration. Validate them at startup and show which required component is missing. Keep environment files and local datasets out of Git.
+
+### 15.2 Planned workflow commands
+
+```powershell
+.\.venv\Scripts\python.exe -m market_events init-db
+.\.venv\Scripts\python.exe -m market_events import-articles --file data\articles.jsonl
+.\.venv\Scripts\python.exe -m market_events import-prices --file data\market_prices.csv
+.\.venv\Scripts\python.exe -m market_events analyse --article-id ARTICLE_ID --as-of "2026-10-23T16:00:00+05:30" --policy slm_delegate
+.\.venv\Scripts\python.exe -m market_events evaluate --run-id RUN_ID
+.\.venv\Scripts\python.exe -m market_events export --run-id RUN_ID
+.\.venv\Scripts\python.exe -m streamlit run app.py
+```
+
+`ARTICLE_ID` and `RUN_ID` are placeholders replaced with actual imported/generated IDs. The example cutoff is illustrative and must correspond to the selected dataset and documented exchange-session policy. CLI validation must refuse a cutoff earlier than mandatory source availability.
+
+### 15.3 Planned demonstration and quality commands
+
+```powershell
+.\.venv\Scripts\python.exe -m market_events demo --mode replay
+.\.venv\Scripts\python.exe -m market_events demo --mode live-model
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m ruff check .
+.\.venv\Scripts\python.exe -m ruff format --check .
+```
+
+`replay` uses recorded model outputs and states this visibly. `live-model` runs actual configured models against the declared fixture inputs; it does not mean the underlying market observations are live. Both modes compute numerical features and fusion through the same production code.
+
+The export should include assessment JSON, a human-readable Markdown case report and a machine-readable usage/outcome record, linked by run ID. Export generated files under `runs/` rather than scattering them through source folders.
+
+## 16. Failure handling and reproducibility
+
+| Situation | Required MVP response |
+| --- | --- |
+| SLM unavailable | Show the failure; offer explicitly labelled LLM-only execution if configured and requested |
+| LLM unavailable | Preserve import/filter results; show incomplete analysis and allow later retry |
+| Optional explanation fails | Show deterministic template based on the saved assessment |
+| Missing source time or market history | Show the limitation and abstain where required; no manufactured feature values |
+| Interrupted run | Record incomplete/failed state; allow a linked retry with an explicit stage and usage history |
+| Schema/configuration changes | Preserve old run snapshots; migration creates a documented version |
+| Provider returns different model | Log actual identity; flag the run for experimental compatibility review |
+| Replay selected | Display recorded-model provenance and original source/model dates |
+
+Treat imported article content as evidence, not executable instructions. Restrict model access to the supplied schemas/read-only tools; there is no reason for a news article to authorize shell commands, file changes or trading operations. Keep credentials out of prompts and logs.
+
+For each reproducible run, retain code revision where available, data/source hashes, exact model identity, prompt/configuration snapshots, decision time, selected observations, provider outputs or permitted diagnostic extracts and final assessment. Model responses may still vary; recorded replay is the exact demonstration path, while live-model experiments disclose this variability.
+
+Include dataset provenance and redistribution permission in fixture manifests. The live connector is optional for the MVP: valid imported real observations can demonstrate the research path. A source adapter should be added only after checking actual coverage and access; lack of an API account should not block all numerical development.
+
+## 17. Completion checklist and final handover
+
+### 17.1 Functional acceptance
+
+- [ ] Import validated articles and equity/commodity observations.
+- [ ] Demonstrate actual SLM filtering and low-level task handling.
+- [ ] Demonstrate actual LLM extraction with supported source passages.
+- [ ] Preserve duplicate/update relationships and ambiguous items.
+- [ ] Run one real equity-commodity evidence assessment at a valid cutoff.
+- [ ] Show score, coverage, conflicts and explicit abstention reasons.
+- [ ] Display a deterministic explanation and optional grounded LLM explanation.
+- [ ] Store original decisions and evaluate completed five-session outcomes separately.
+- [ ] Compare the three execution policies with quality and usage measurements.
+- [ ] Support a clearly labelled recorded replay without model/network access.
+
+### 17.2 Readability acceptance
+
+- [ ] A teammate can explain `pipeline.py` by following its function calls.
+- [ ] UI, storage, model integration and financial calculations have clear boundaries.
+- [ ] No duplicate scoring formulas or undocumented financial constants exist.
+- [ ] Public financial functions document units, timing and missing-data behaviour.
+- [ ] Schema fields and formulas have worked examples.
+- [ ] Prompts and configuration are named, versioned and linked to runs.
+- [ ] Unused scaffolding, abandoned experiments and temporary scripts are removed from the final source tree.
+- [ ] Meaningful tests, formatting and lint checks pass in the documented environment.
+
+### 17.3 Handover package
+
+Provide a README, codebase guide, data dictionary, implementation log, model/prompt notes, experiment report and a five-case demo script. Include a manifest explaining which data and outputs are synthetic, imported historical, recorded or newly inferred.
+
+The final `IMPLEMENTATION_LOG.md` should answer:
+
+1. What was implemented and where?
+2. What is the exact route from an article to an assessment?
+3. What does the SLM do, and when does the LLM run?
+4. Which numerical rules determine the displayed result?
+5. What failed or remains outside scope?
+6. How can someone reproduce the demonstration and comparison?
+
+For viva preparation, be able to explain why a duplicate is not a new event, why missing evidence is not zero, why a future candle is ineligible, why a score is not a probability, and why fewer LLM calls may still fail to improve total latency.
+
+The MVP is complete when this package and the working path are reproducible, not when every planned full-project feature has been added.
+
+## 18. After the MVP and reference documentation
+
+### 18.1 Next features in order
+
+1. Add one permitted live data adapter and prospective collection with recorded health/freshness.
+2. Add meaningful-change alerts inside the application, then an independently running worker if needed.
+3. Add manual/CSV portfolio relevance without requiring brokerage credentials.
+4. Add the bounded derivatives workflow promised in the full project, using actual covered data.
+5. Expand event history search, reviewed exposure mappings and the evaluation sample.
+
+Each extension must update the schemas, module guide, tests and implementation log. Keep the first complete MVP as a reproducible tagged milestone before adding broader scope.
+
+### 18.2 Official documentation checked for this guide
+
+- [Streamlit forms](https://docs.streamlit.io/develop/concepts/architecture/forms): supports explicit batched submission rather than launching analysis on every widget change.
+- [Streamlit caching](https://docs.streamlit.io/develop/concepts/architecture/caching): explains reruns and data/resource caching; cache use does not replace durable run records.
+- [Pydantic validation](https://docs.pydantic.dev/latest/): supports typed records and schema validation; factual evidence checks remain application responsibilities.
+- [Ollama chat API](https://docs.ollama.com/api/chat): one possible model endpoint supports schema-formatted output and usage/timing fields. Model compatibility and latency must be tested; Ollama is not mandatory for both model roles.
+- [Ruff](https://docs.astral.sh/ruff/): shared Python linting/formatting configured through the project tooling.
+
+These sources support tool capabilities, not a claim that this repository already has a working application or that the proposed models will improve market prediction. Implementation, model selection, data verification and measured results remain future work.
