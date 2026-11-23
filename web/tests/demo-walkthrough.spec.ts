@@ -72,6 +72,9 @@ for (const viewport of VIEWPORTS) for (const theme of THEMES) {
     const tour = page.locator(".tour-card");
     await expect(tour.getByRole("heading", { name: /demo tour/i })).toBeVisible();
     await expect(tour.locator(".tour-badge")).toHaveCount(7);
+    // Progress reads left to right: done badges always form an unbroken run from step 1.
+    const doneFlags = await tour.locator(".tour-badge").evaluateAll(badges => badges.map(badge => badge.hasAttribute("data-done")));
+    expect(doneFlags.slice(doneFlags.indexOf(false) < 0 ? doneFlags.length : doneFlags.indexOf(false)).every(flag => !flag)).toBe(true);
     const current = tour.locator('.tour-badge[aria-current="step"]');
     await expect(current).toHaveCount(1);
     const before = await current.getAttribute("aria-label");
@@ -135,6 +138,13 @@ for (const viewport of VIEWPORTS) for (const theme of THEMES) {
     await expect(page.locator(".chart-legend")).toContainText("Starting capital");
     await page.locator(".simulation-svg").scrollIntoViewIfNeeded();
     await shot("lab-monte-carlo", false);
+
+    // Restart tour: clears saved progress and sends the tour back to the first unfinished step.
+    await page.goto("/?view=overview&workspace=demo&universe=demo");
+    await page.locator(".tour-card").getByRole("button", { name: "Restart tour" }).first().click();
+    await expect(page.locator(".tour-progress")).toHaveText("1 of 7 done");
+    await expect(page.locator('.tour-badge[aria-current="step"]')).toHaveAttribute("aria-label", "Step 2: Pick a news story");
+    await expect(page.locator(".skip-link")).toHaveCSS("width", "1px");
 
     await context.close();
     expect(problems, problems.join("\n")).toEqual([]);

@@ -65,3 +65,7 @@
 }
 /* Keep the "saved data / not live" label on screen at laptop widths; session counts stay in the table below. */
 @media (min-width: 1101px) and (max-width: 1500px) { :root .premium-ticker small { display: none; } }
+
+/* Skip link: fully clipped unless it has keyboard focus, so it can never be painted during mouse use
+   (an off-screen top value alone can still show up in full-page screenshots). */
+.skip-link:not(:focus-visible) { clip-path: inset(50%); width: 1px; height: 1px; padding: 0; overflow: hidden; white-space: nowrap; }

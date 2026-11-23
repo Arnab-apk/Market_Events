@@ -40,6 +40,10 @@ export function markTourStep(key: string) {
   if (!current.done[key]) write({ ...current, done: { ...current.done, [key]: true } });
 }
 const setSkipped = (skipped: boolean) => write({ ...read(), skipped });
+/** Forget all saved tour progress (clicked steps and the skip choice). */
+export const resetTour = () => write(EMPTY);
+/** A step only counts as done once every earlier step is done, so progress always reads left to right. */
+const sequential = (steps: TourStep[]) => steps.map((step, index) => ({ ...step, done: steps.slice(0, index + 1).every(each => each.done) }));
 
 // ---------- step definitions ----------
 type TourStep = { key: string; title: string; body: ReactNode; action: ReactNode; done: boolean };
@@ -51,6 +55,10 @@ function storyFor(data: Workspace) {
 }
 
 export function useTourSteps(data: Workspace, links: Hrefs, onDemo: () => void, busy: boolean): TourStep[] {
+  return sequential(useRawTourSteps(data, links, onDemo, busy));
+}
+
+function useRawTourSteps(data: Workspace, links: Hrefs, onDemo: () => void, busy: boolean): TourStep[] {
   const progress = useTourProgress();
   const demo = data.workspace === "demo";
   if (!demo) {
@@ -98,21 +106,21 @@ export function GuidedTour({ data, links, onDemo, busy }: { data: Workspace; lin
   const demo = data.workspace === "demo";
   const doneCount = steps.filter(step => step.done).length;
   if (demo && progress.skipped) {
-    return <section className="tour-card tour-card--collapsed" aria-label="Demo tour"><MapIcon size={16} aria-hidden="true" /><p>Demo tour hidden. {doneCount} of {steps.length} steps done.</p><button type="button" className="text-button" onClick={() => setSkipped(false)}>Show demo tour</button></section>;
+    return <section className="tour-card tour-card--collapsed" aria-label="Demo tour"><MapIcon size={16} aria-hidden="true" /><p>Demo tour hidden. {doneCount} of {steps.length} steps done.</p><button type="button" className="text-button" onClick={() => setSkipped(false)}>Show demo tour</button><button type="button" className="text-button" onClick={() => { resetTour(); setViewing(null); }}><RotateCcw size={13} aria-hidden="true" />Restart tour</button></section>;
   }
   return <section className="tour-card" aria-labelledby="tour-title">
     <div className="tour-atmosphere" aria-hidden="true"><Aurora colorStops={["#8aa34a", "#d5b864", "#657c39"]} paused={motionOff} mouseInteraction={false} intro={false} lightMode={theme === "light"} opacity={0.2} amplitude={0.5} layers={1} /></div>
     <div className="tour-heading">
       <div><h2 id="tour-title">{demo ? "Demo tour: from a headline to evidence you can check" : "Your research path"}</h2>
         <p>{demo ? "Seven short steps through the whole workflow. Each step opens the right page with the fields filled in; you can leave the tour at any time." : "Three steps from an article to an auditable result."}</p></div>
-      <div className="tour-meta"><span className="tour-progress">{doneCount} of {steps.length} done</span>{demo && <button type="button" className="text-button" onClick={() => setSkipped(true)}><EyeOff size={13} aria-hidden="true" />Skip tour</button>}</div>
+      <div className="tour-meta"><span className="tour-progress">{doneCount} of {steps.length} done</span>{demo && <><button type="button" className="text-button" onClick={() => { resetTour(); setViewing(null); }}><RotateCcw size={13} aria-hidden="true" />Restart tour</button><button type="button" className="text-button" onClick={() => setSkipped(true)}><EyeOff size={13} aria-hidden="true" />Skip tour</button></>}</div>
     </div>
     <Stepper className="tour-stepper" step={current} onStepChange={setViewing} onFinalStepCompleted={() => setViewing(steps.length + 1)}
       theme={theme} frame={false} width="100%" transition="slide" backButtonText="Back" nextButtonText="Next step" completeButtonText="Finish tour"
       style={{ "--stepper-solid": "var(--mode-primary)", "--stepper-solid-ink": "var(--mode-primary-ink)", "--stepper-ink": "var(--mode-text)", "--stepper-muted": "var(--mode-muted)", "--stepper-well": "var(--mode-raised)", "--stepper-tile": "var(--mode-panel)", "--stepper-tile-edge": "var(--mode-border)", "--stepper-track": "var(--mode-border)" } as React.CSSProperties}
       renderStepIndicator={({ step, currentStep, onStepClick }) => { const item = steps[step - 1]; return <button type="button" className="tour-badge" data-done={item.done ? "" : undefined} aria-current={step === currentStep ? "step" : undefined}
         aria-label={`Step ${step}: ${item.title}${item.done ? " (done)" : ""}`} onClick={() => onStepClick(step)}>{item.done ? <Check size={14} aria-hidden="true" /> : step}</button>; }}
-      completedContent={<div className="tour-pane"><h3>Tour complete</h3><p>You have seen the whole workflow. Every result stays in Saved results; use the glossary for any term.</p><button type="button" className="button secondary" onClick={() => setViewing(1)}><RotateCcw size={14} aria-hidden="true" />Restart tour</button></div>}>
+      completedContent={<div className="tour-pane"><h3>Tour complete</h3><p>You have seen the whole workflow. Every result stays in Saved results; use the glossary for any term.</p><button type="button" className="button secondary" onClick={() => { resetTour(); setViewing(null); }}><RotateCcw size={14} aria-hidden="true" />Restart tour</button></div>}>
       {steps.map((step, index) => <Step key={step.key} title={step.title}>
         <div className="tour-pane">
           <p className="tour-step-label">Step {index + 1} of {steps.length}{step.done && <span className="tour-done"><Check size={12} aria-hidden="true" />Done</span>}</p>
