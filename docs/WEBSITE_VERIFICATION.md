@@ -1,5 +1,7 @@
 # Website verification — 27 October 2026
 
+> **Historical record (annotated 2026-11-23).** File names below describe the frontend as it was then. Since commit `7ef4918`, the web CSS is six files: `tokens.css`, `base.css`, `layout.css`, `components.css`, `overview.css` and `presentation.css`. The old `globals.css`, `crypto-system.css`, `fintech-theme.css`, `hero.css`, `premium-overview.css`, `premium-theme.css` and `color-modes.css`, and `_components/signal-hero.tsx`, were removed. See `web/README.md` for the current structure.
+
 ## Premium dashboard revision
 
 The latest revision follows the user's agreed design direction: the [Zajno crypto reference](https://dribbble.com/shots/26372656-AI-Helper-for-Smarter-Crypto-Investing-and-Trading) supplies the compact dashboard structure and charcoal/lime/gold palette; the [Zajno health reference](https://dribbble.com/shots/26451832-AI-Powered-Platform-for-Proactive-Health-Monitoring) informs the spacing, fine chart grids and information hierarchy. The overview replaces the previous large promotional hero.

@@ -1,5 +1,7 @@
 # Trading research extension — 2026-10-26
 
+> **Historical record (annotated 2026-11-23).** File names below describe the frontend as it was then. Since commit `7ef4918`, the web CSS is six files: `tokens.css`, `base.css`, `layout.css`, `components.css`, `overview.css` and `presentation.css`. The old `globals.css`, `crypto-system.css`, `fintech-theme.css`, `hero.css`, `premium-overview.css`, `premium-theme.css` and `color-modes.css`, and `_components/signal-hero.tsx`, were removed. See `web/README.md` for the current structure.
+
 User scope: coordinate in separate Herdr tabs; TradingView hosted widget and Lightweight Charts; common indicators; strategy backtesting; animated Monte Carlo. Historical research must END on 2020-12-31 (user explicitly clarified), default start 2015-01-01. Preserve the existing Streamlit research workflows. Next.js/React is a suitable future frontend; no migration was requested explicitly.
 
 Ownership for this extension supersedes earlier build ownership for the files listed here. No commits, no nested agents, no automatic model calls or provider downloads on rendering. Do not print or export credentials. All agents share the working tree.

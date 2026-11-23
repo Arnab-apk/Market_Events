@@ -86,7 +86,10 @@ field says "Frozen conceptual demonstration policy, not calibrated probabilities
 **12. Is the score a probability or confidence?**
 No. It is a signed evidence strength in [−1, 1]. Coverage measures how much of the configured evidence
 was available, not how confident we are. Calibration metrics (Brier, ECE) therefore don't apply. The UI
-says "Evidence completeness, not predictive confidence" (`premium-overview.tsx`).
+says "Evidence completeness, not predictive confidence" (`web/app/_components/premium-overview.tsx`). The
+result view prints the arithmetic under "How the score was built", for example `0.6 × (+0.40 equity vs
+benchmark) + 0.4 × (−0.50 crude oil, exposure-adjusted) = +0.04 → neutral (threshold ±0.15)`, beside
+"Threshold ±0.15" and "Minimum 60%" (`workspace-panels.tsx` `RunSummary`; text from `plain_language.py`).
 
 **13. Why abstain instead of returning a partial score?**
 A partial score can look confident while hiding a missing mandatory input. If a required feature, a valid
@@ -116,7 +119,8 @@ earlier cutoff. Reliance and Pidilite are reviewed without a rule, so they absta
 `llm_only` uses the LLM to filter and extract. `slm_filter` uses the SLM to filter and the LLM to extract.
 `slm_delegate` does the same, plus it passes the verified filter output to the LLM as hints
 (`pipeline.analyse_article`, `role` and `delegated`). Extraction always receives the full article. The UI
-label "Large-model extraction only" for `llm_only` hides that it also runs an LLM filter call.
+labels say what each does: "Large model does both steps", "Small model screens → large model extracts" and
+"Small model screens and hands over hints → large model extracts" (`web/app/_components/types.ts`).
 
 **17. Did the small model save cost?**
 Not on our data. The archived live comparison on 7 synthetic articles per policy shows `llm_only` with

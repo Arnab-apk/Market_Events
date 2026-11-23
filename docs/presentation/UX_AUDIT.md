@@ -1,5 +1,7 @@
 # UX audit: Market Events web workspace
 
+> **Status (annotated 2026-11-23 by pitch-docs).** This audit describes the UI *before* the redesign in commits `420065e`/`8b4fca7`, which addressed its findings (see the DONE marks in `docs/PRESENTATION_PLAN.md`). Labels and file names quoted below are historical. For example, `signal-hero.tsx` was removed (its hook is now `use-reduced-motion.ts`), and "Large-model extraction only" is now "Large model does both steps". For current labels, use `docs/presentation/DEMO_SCRIPT.md`.
+
 Auditor: `research`, 2026-11-21. Read-only audit: I edited no code and started or stopped no servers.
 
 **Method.** I used the running dev stack at `http://127.0.0.1:3000`. A Playwright script (Chrome channel, run from `web/`'s dependencies) walked all 8 views:

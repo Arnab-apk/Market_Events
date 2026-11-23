@@ -128,6 +128,7 @@ Never say "first" or "novel" without "to our knowledge".
 - `pipeline.analyse_article`: freeze config → reuse check → filter → extract → features → fuse → save
 - SQLite ledger: append-only runs, model calls and assessments (database triggers). Outcomes are stored separately.
 - Two model modes: **replay** (recorded fixtures, offline) and **live** (Ollama or an OpenAI-compatible endpoint)
+- Self-explaining UI: a 7-step guided demo tour, glossary and tooltips, a plain-English verdict and a "How the score was built" formula
 
 Diagram: `docs/presentation/ARCHITECTURE_DIAGRAM.md` (mermaid, with a plain-text fallback).
 
@@ -135,7 +136,10 @@ Diagram: `docs/presentation/ARCHITECTURE_DIAGRAM.md` (mermaid, with a plain-text
 cross-origin writes (`web/app/api/research/[...path]/route.ts`; `api.py` `local_boundary`). Saved records
 are immutable: SQLite triggers `RAISE(ABORT, 'Saved records are immutable')` (`storage.py`). Identical
 requests are hashed and reused instead of re-running inference (`pipeline.py`, `request_key`,
-`lookup_request`). The original Streamlit app (`app.py`) still runs on the same engine.
+`lookup_request`). The original Streamlit app (`app.py`) still runs on the same engine. The guided tour is
+`web/app/_components/demo-tour.tsx`. The plain-English summary, reasons and score formula are display-only
+fields built by `plain_language.py` from the saved components. They are never stored, so the immutable
+decision record is unchanged.
 
 ---
 
@@ -222,7 +226,8 @@ score uses the *reaction-day* excess return already visible at the cutoff. Keep 
 
 **Speaker notes:** Routing is `pipeline.py` lines 179–188, and budgets are `config.Settings` and
 `model_client.ask`. The admission estimate is serialized bytes plus the output allowance, not real tokens.
-The dashboard label "Large-model extraction only" for `llm_only` hides that it still runs an LLM filter.
+The dashboard names the policies by what they do: "Large model does both steps", "Small model screens → large
+model extracts" and "Small model screens and hands over hints → large model extracts" (`web/app/_components/types.ts`).
 Replay returns the same recorded output for any role, so **replay cannot show a policy difference**; only
 live runs can. Live development models: `qwen3.5:2b` in the SLM role and `gemma4:e4b` in the LLM role
 (`runs/handover.usage.json`). There is no "SLM extracts, LLM on validation failure" policy yet. That

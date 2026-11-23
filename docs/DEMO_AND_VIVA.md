@@ -7,8 +7,10 @@ Project: *A Heterogeneous Multi-Agent Framework for Financial Event Detection an
 The presentation uses the Next.js dashboard (`npm.cmd run dev`, http://127.0.0.1:3000). See
 [the slides](presentation/SLIDES.md), [the timed demo script with offline fallbacks](presentation/DEMO_SCRIPT.md),
 [27 viva answers](presentation/VIVA_QA.md) and [the architecture diagram](presentation/ARCHITECTURE_DIAGRAM.md).
-The Streamlit walkthrough below remains the fallback path and uses the same engine. In Next.js the demo button is
-**Try synthetic demo**. In Streamlit it is **Load synthetic demo (replay)**.
+The Streamlit walkthrough below remains the fallback path and uses the same engine. In Next.js, follow the 7-step
+**demo tour** on the Overview page (step 1's button is **Load synthetic demo**; the heading button is
+**Load synthetic demo (replay)**). Start from a fresh `data/web_demo.sqlite` as described in the demo script's
+"Before you present" checklist. In Streamlit, the button is **Load synthetic demo (replay)**.
 
 ### Outcome definition (say this explicitly)
 
