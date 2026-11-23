@@ -1098,3 +1098,31 @@ input:focus, select:focus, textarea:focus { border-color: #c9f56b; }
   .premium-heading { gap: 14px; }
   .premium-overline { display: none; }
 }
+
+/* ---- UI phase: guided tour (React Bits Stepper) and overview fixes ---- */
+:root .tour-card {
+  position: relative; isolation: isolate; overflow: hidden; margin: 0 0 22px; padding: 22px 24px 20px;
+  border: 1px solid var(--mode-border); border-radius: 18px; background: var(--mode-guide); color: var(--mode-text);
+}
+:root .tour-atmosphere { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+:root .tour-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 24px; margin-bottom: 12px; }
+:root .tour-heading h2 { margin: 0; font-size: 20px; }
+:root .tour-heading p { margin: 6px 0 0; color: var(--mode-muted); max-width: 70ch; font-size: 14px; }
+:root .tour-meta { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--mode-muted); }
+:root .tour-progress { font-weight: 600; color: var(--mode-text); }
+:root .tour-badge {
+  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%;
+  font: 600 13px/1 var(--font); cursor: pointer; color: var(--mode-text); background: var(--mode-panel); border: 1px solid var(--mode-input-border);
+}
+:root .tour-badge[data-done] { color: var(--mode-primary-ink); background: var(--mode-primary); border-color: var(--mode-primary); }
+:root .tour-badge[aria-current="step"] { outline: 2px solid var(--mode-link); outline-offset: 2px; }
+:root .tour-pane { padding: 6px 2px 4px; }
+:root .tour-pane h3 { margin: 2px 0 6px; font-size: 18px; }
+:root .tour-pane p { margin: 0; color: var(--mode-text); font-size: 15px; line-height: 1.6; max-width: 72ch; }
+:root .tour-pane .tour-step-label { display: flex; align-items: center; gap: 10px; color: var(--mode-muted); font-size: 13px; }
+:root .tour-done { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; color: var(--mode-success); background: var(--mode-success-bg); font-weight: 600; }
+:root .tour-action { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
+:root .tour-card--collapsed { display: flex; align-items: center; gap: 10px; padding: 12px 18px; }
+:root .tour-card--collapsed p { margin: 0; color: var(--mode-muted); font-size: 14px; }
+/* Coverage legend labels: AA contrast in both themes (were about 1.9:1 in light mode). */
+:root .premium-coverage-legend > div > span { color: var(--mode-muted); font-size: 12px; }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type CSSProperties } from 'react';
 import './Aurora.css';
+import { useReducedMotion } from '../use-reduced-motion';
 
 export interface AuroraProps {
   colorStops?: string[];
@@ -286,6 +287,7 @@ const Aurora = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wakeRef = useRef<(() => void) | null>(null);
   const stops = (Array.isArray(colorStops) ? colorStops : []).filter(Boolean).map(String).slice(0, MAX_STOPS);
+  const reducedMotion = useReducedMotion();
   const settings: Settings = {
     stops: stops.length >= 2 ? stops : stops.length === 1 ? [stops[0], stops[0]] : ['#5227FF', '#7cff67'],
     amplitude: Math.max(0, amplitude),
@@ -302,7 +304,7 @@ const Aurora = ({
     intro,
     opacity: clamp(opacity, 0, 1),
     lightMode,
-    paused,
+    paused: paused || reducedMotion,
     dpr
   };
   const settingsRef = useRef(settings);

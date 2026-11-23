@@ -728,3 +728,116 @@ input[type="checkbox"] { width: 17px; height: 17px; min-height: 17px; flex-shrin
 @media (max-width: 520px) {
   .metric-grid .metric { padding: 16px 13px; }
 }
+
+/* ---- UI phase: shared building blocks ---- */
+/* Term: dotted underline; the tooltip is position:fixed so scrolling tables cannot clip it. */
+:root .term {
+  display: inline; padding: 0; margin: 0; border: 0; background: none; font: inherit; color: inherit; letter-spacing: inherit;
+  text-transform: inherit; text-align: inherit; cursor: help; text-decoration: underline dotted; text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent); min-height: 0; min-width: 0; width: auto; box-shadow: none;
+}
+:root .term:hover { background: none; }
+:root .term:focus-visible { outline: 2px solid var(--mode-link); outline-offset: 2px; border-radius: 2px; }
+:root .term-tip {
+  position: fixed; z-index: 400; display: none; max-width: min(300px, calc(100vw - 24px)); padding: 10px 12px; border-radius: 10px;
+  font: 400 13px/1.5 var(--font); letter-spacing: 0; text-transform: none; text-align: left; white-space: normal;
+  color: var(--mode-text); background: var(--mode-panel); border: 1px solid var(--mode-input-border); box-shadow: var(--mode-shadow);
+  pointer-events: none;
+}
+:root .term-tip[data-open] { display: block; }
+/* Cutoff field: date + time + timezone, with a readable echo of the chosen moment. */
+:root .cutoff-field { border: 0; padding: 0; margin: 0 0 18px; min-width: 0; }
+:root .cutoff-field legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--mode-text); }
+:root .cutoff-inputs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+:root .cutoff-inputs input, :root .cutoff-inputs select { min-height: 40px; }
+:root .chip {
+  min-height: 36px; padding: 6px 12px; border-radius: 999px; font-size: 13px; cursor: pointer;
+  color: var(--mode-link); background: var(--mode-success-bg); border: 1px solid var(--mode-input-border);
+}
+:root .chip:hover { background: var(--mode-hover); }
+:root .field-note { margin: 6px 0 0; font-size: 13px; color: var(--mode-muted); }
+:root .field-error { margin: 6px 0 0; font-size: 13px; color: var(--mode-danger); font-weight: 600; }
+:root input[aria-invalid="true"] { border-color: var(--mode-danger); }
+:root .field-legend { margin-bottom: 8px; font-size: 13px; color: var(--mode-muted); }
+/* Plain-English verdicts and states. */
+:root .verdict { margin: 12px 0 16px; font-size: 16px; line-height: 1.6; color: var(--mode-text); max-width: 75ch; }
+:root .state-card {
+  margin: 14px 0; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--mode-input-border);
+  background: var(--mode-raised); color: var(--mode-text);
+}
+:root .state-card strong { display: block; font-size: 15px; }
+:root .state-card p { margin: 4px 0 0; color: var(--mode-text); font-size: 14px; line-height: 1.55; }
+:root .state-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; align-items: center; }
+:root .score-formula { margin: 14px 0; padding: 12px 14px; border-left: 3px solid var(--mode-link); background: var(--mode-raised); border-radius: 0 10px 10px 0; }
+:root .score-formula h3 { margin: 0 0 6px; font-size: 14px; }
+:root .score-formula code { font: 500 14px/1.6 var(--mono); color: var(--mode-text); white-space: normal; overflow-wrap: anywhere; }
+:root .reason-list { margin: 6px 0 14px; padding-left: 20px; color: var(--mode-text); line-height: 1.6; }
+:root .reason-list li.conflict { color: var(--mode-warning); }
+:root .error-list { margin: 8px 0 12px; padding-left: 20px; color: var(--mode-danger); line-height: 1.6; font-size: 14px; }
+:root .stat-item strong.tone-positive, :root .metric > strong.tone-positive { color: var(--mode-success); }
+:root .stat-item strong.tone-negative, :root .metric > strong.tone-negative { color: var(--mode-danger); }
+:root .low-sample { margin: 0 0 18px; }
+:root .low-sample-flag { color: var(--mode-warning); font-weight: 600; }
+:root .rule-line { color: var(--mode-text); }
+:root .walk-forward-option { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-start; }
+:root .walk-forward-option .field { min-width: 220px; }
+/* Results span the full width under the two research columns (no hidden columns at 1366px). */
+:root .result-panel { margin-top: 20px; }
+:root .trio-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 12px 0; }
+:root .trio-card { padding: 14px 16px; border: 1px solid var(--mode-border); border-radius: 12px; background: var(--mode-raised); }
+:root .trio-card h3 { margin: 0 0 6px; font-size: 14px; line-height: 1.45; }
+:root .trio-models { margin: 0 0 10px; font-size: 12.5px; color: var(--mode-muted); }
+:root .trio-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; margin: 0; }
+:root .trio-card dt { font-size: 12px; color: var(--mode-muted); }
+:root .trio-card dd { margin: 2px 0 0; font-weight: 600; color: var(--mode-text); }
+@media (max-width: 900px) { :root .trio-grid { grid-template-columns: 1fr; } }
+:root .fit-table { table-layout: auto; width: 100%; }
+:root .method-calls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+:root .method-calls .stat-item strong { font-size: 18px; }
+/* Source inbox: pinned story articles and collapsed duplicates. */
+:root .selection-list { margin-top: 16px; }
+:root .selection-group { display: flex; align-items: center; gap: 6px; margin: 6px 0 2px; font-size: 12.5px; font-weight: 600; color: var(--mode-muted); }
+:root .selection-group-items { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+:root .selection-text { display: block; margin-top: 4px; font-size: 12.5px; color: var(--mode-muted); font-weight: 400; }
+:root .duplicates-toggle { align-self: flex-start; font-size: 12.5px; min-height: 28px; }
+:root .filter-chip { margin: 10px 0 0; font-size: 13px; color: var(--mode-muted); }
+:root .filter-chip a { color: var(--mode-link); margin-left: 6px; }
+:root .story-note { display: flex; gap: 6px; align-items: center; margin: 0 0 10px; color: var(--mode-link); font-weight: 600; font-size: 14px; }
+/* Import format toggle uses aria-pressed (plain toggle buttons, not a tab pattern). */
+:root .tabs button[aria-pressed="true"] {
+  color: var(--mode-link); background: var(--mode-success-bg); border-color: var(--mode-input-border);
+  box-shadow: inset 0 -2px 0 var(--mode-link);
+}
+/* Monte Carlo legend with line styles, so meaning never depends on colour alone. */
+:root .chart-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 10px 0 0; padding: 0; list-style: none; font-size: 13px; color: var(--mode-muted); }
+:root .chart-legend li { display: inline-flex; align-items: center; gap: 8px; }
+:root .chart-legend i { display: inline-block; width: 26px; height: 0; }
+:root .chart-legend i.legend-band { height: 10px; background: color-mix(in srgb, var(--chart-gold) 22%, transparent); }
+:root .legend-median { border-top: 3px solid var(--chart-gold); }
+:root .legend-sample { border-top: 1px solid var(--chart-up); }
+:root .legend-start { border-top: 2px dashed var(--chart-text); }
+/* Glossary drawer (native dialog: focus trap and Escape come for free). */
+:root .glossary-drawer {
+  width: min(560px, 100vw); max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0 0 0 auto; padding: 22px 24px;
+  border: 0; border-left: 1px solid var(--mode-border); background: var(--mode-panel); color: var(--mode-text); overflow-y: auto;
+}
+:root .glossary-drawer::backdrop { background: rgb(0 0 0 / .45); }
+:root .glossary-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+:root .glossary-head h2 { margin: 0; font-size: 20px; }
+:root .glossary-intro { margin: 8px 0 14px; color: var(--mode-muted); font-size: 14px; }
+:root .glossary-search { display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid var(--mode-input-border); border-radius: 10px; background: var(--mode-raised); }
+:root .glossary-search input { flex: 1; min-height: 40px; border: 0; background: transparent; color: var(--mode-text); }
+:root .glossary-drawer h3 { margin: 20px 0 8px; font-size: 14px; color: var(--mode-link); }
+:root .glossary-drawer dl { margin: 0; }
+:root .glossary-drawer dl > div { padding: 8px 0; border-bottom: 1px solid var(--mode-border); }
+:root .glossary-drawer dt { font-weight: 600; font-size: 14px; }
+:root .glossary-drawer dd { margin: 2px 0 0; font-size: 14px; line-height: 1.55; color: var(--mode-muted); }
+
+/* Sentence-case labels that come from data (e.g. "neutral", "commodity supply disruption"). */
+:root .run-summary .subheading h2::first-letter, :root .stat-item strong[class^="direction-"]::first-letter, :root .trio-card dd::first-letter { text-transform: uppercase; }
+:root .stat-item strong[class^="direction-"], :root .trio-card dd { display: block; }
+:root .alert.low-sample { display: block; line-height: 1.6; }
+
+/* Fit-to-width tables: wrap headers and cap the method column so every column stays visible at 1366px. */
+:root .fit-table th, :root .fit-table td { white-space: normal; padding-inline: 10px; vertical-align: top; }
+:root .fit-table th:first-child, :root .fit-table td:first-child { max-width: 240px; min-width: 170px; }

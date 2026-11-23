@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 
 import './SpotlightCard.css';
+import { useReducedMotion } from '../use-reduced-motion';
 
 export type SpotlightShape = 'circle' | 'beam';
 
@@ -108,8 +109,9 @@ const SpotlightCard = ({
   const palette = THEMES[theme] ?? THEMES.dark;
   const color = spotlightColor ?? palette.light;
   const form = SHAPES.includes(shape) ? shape : 'circle';
+  const reducedMotion = useReducedMotion();
   const settings: Settings = {
-    paused,
+    paused: paused || reducedMotion,
     shape: form,
     fill: falloff(color, softness),
     edge: falloff(color, 1),

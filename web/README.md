@@ -18,7 +18,9 @@ web/
 │  ├─ _components/
 │  │  ├─ research-app.tsx       App shell, navigation, workspace loading, shared UI pieces
 │  │  ├─ premium-overview.tsx   Overview section
-│  │  ├─ research-guide.tsx     "Your research path" card on the overview
+│  │  ├─ demo-tour.tsx          Guided tour (React Bits Stepper) on the overview + tour bar on demo pages
+│  │  ├─ glossary.ts            Plain-English intros and term definitions (from UX_AUDIT.md §3)
+│  │  ├─ ui.tsx                 <Term> tooltips, <Count>, date/time cutoff field, glossary drawer, error copy
 │  │  ├─ workspace-panels.tsx   Event research, Saved results, Import, Indicators, Connections, Comparisons
 │  │  ├─ strategy-lab.tsx       Strategy lab: history, backtest, Monte Carlo
 │  │  ├─ research-charts.tsx    PriceChart / EquityChart (lightweight-charts)
@@ -26,7 +28,7 @@ web/
 │  │  ├─ theme-toggle.tsx       Light/dark toggle + useTheme()
 │  │  ├─ use-reduced-motion.ts  Reduced-motion hook
 │  │  ├─ types.ts               API response types + formatting helpers
-│  │  └─ react-bits/            Third-party visual effects (Aurora, SpotlightCard), MIT, see its LICENSE.md
+│  │  └─ react-bits/            Vendored React Bits: Aurora, SpotlightCard, Stepper, CountUp, AnimatedContent, ShinyText (see its README)
 │  └─ *.css                 Stylesheets, imported in this order by layout.tsx:
 │     ├─ tokens.css         Design tokens (CSS custom properties) for dark and light mode
 │     ├─ base.css           Element defaults, accessibility helpers, keyframes

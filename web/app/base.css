@@ -1,5 +1,5 @@
 /* Base: element defaults (body, headings, form controls), accessibility helpers (.sr-only),
-   loading states, page-enter animation and @keyframes.
+   loading states and @keyframes (view transitions use React Bits AnimatedContent).
    Import order (layout.tsx): tokens → base → layout → components → overview → presentation.
    `:root .x` selectors are deliberate: the extra specificity lets the light/dark colour rules win over
    structural rules. A few rules sit in a later file than their topic because they must come after
@@ -116,7 +116,6 @@ table thead th { text-transform: none; }
 
 .spin { animation: spin 1s linear infinite; }
 
-.page-enter { animation: none; }
 
 @media (min-width: 1600px) {
   td { padding-block: 19px; }
@@ -136,8 +135,6 @@ td { border-bottom: 1px solid #202936; padding: 14px 20px; border-bottom-color: 
     transition: none !important;
     scroll-behavior: auto !important;
   }
-  .page-enter { animation: none !important; transition: none !important; }
 }
 
 @keyframes spin{to{transform:rotate(360deg)}}
-@keyframes page-enter{from{opacity:.7;transform:translateY(3px)}to{opacity:1;transform:none}}
