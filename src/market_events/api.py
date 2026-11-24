@@ -119,7 +119,9 @@ def create_app(root=None, settings=None):
         result.root = api.state.root
         result.universe = "demo" if workspace == "demo" else universe
         if workspace == "demo":
-            result.database_path = api.state.root / "data/web_demo.sqlite"
+            # A hosted deployment points this at a writable copy (see vercel_app.py).
+            demo = os.getenv("MARKET_EVENTS_DEMO_DATABASE")
+            result.database_path = Path(demo) if demo else api.state.root / "data/web_demo.sqlite"
             result.mode = "replay"
         elif not result.database_path.is_absolute():
             result.database_path = api.state.root / result.database_path

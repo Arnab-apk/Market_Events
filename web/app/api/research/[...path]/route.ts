@@ -24,7 +24,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       (!isRead && action === "sync" && ["live", "historical"].includes(identifier))
     );
   if (!allowed) return Response.json({ detail: "Unknown research endpoint" }, { status: 404 });
-  if (!isRead && !acceptsLocalOrigin(request.headers.get("origin"), request.headers.get("host"), request.nextUrl.protocol, request.nextUrl.port)) {
+  if (!isRead && !acceptsLocalOrigin(request.headers.get("origin"), request.headers.get("host"), request.nextUrl.protocol, request.nextUrl.port, Boolean(process.env.VERCEL))) {
     return Response.json({ detail: "Cross-origin mutation refused" }, { status: 403 });
   }
   const target = new URL(`/api/${path.map(encodeURIComponent).join("/")}`,

@@ -63,6 +63,9 @@ Browser ──fetch──▶ /api/research/<endpoint>?workspace=…&universe=…
 - Writes: `demo`, `import`, `analyse`, `technicals`, `history`, `backtest`, `monte-carlo`, `outcomes`,
   `analyse-news`, `explain/<run_id>`, `sync/historical`, `sync/live`.
 - The proxy target comes from `MARKET_EVENTS_API_URL` (default `http://127.0.0.1:8000`).
+- On Vercel (`vercel.json` at the project root), the Python API runs as a private `api` service and
+  Vercel fills in `MARKET_EVENTS_API_URL` itself. `vercel_app.py` copies the demo database to `/tmp`, so
+  changes reset whenever a new instance starts. Writes are accepted only from the site's own origin.
 - Workspaces: `workspace=demo` uses the synthetic replay database (`data/web_demo.sqlite`);
   `workspace=local` uses your own database. Nothing contacts a market data provider or a model
   unless you press the button for that explicit action.
