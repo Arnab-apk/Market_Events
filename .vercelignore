@@ -1,0 +1,24 @@
+# Never upload secrets, local databases or generated files to Vercel.
+.env
+.env.*
+web/.env*
+.venv/
+.cache/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+**/node_modules/
+**/.next/
+*.tsbuildinfo
+data/*
+!data/web_demo.sqlite
+runs/
+scratch/
+scratch-demo.json
+reports/
+playwright-report/
+test-results/
+web/test-results/
+web/tests/screenshots/

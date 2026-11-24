@@ -27,3 +27,6 @@ web/.env*
 web/tests/screenshots/
 # Advisory output from the data-quality-checker skill
 reports/
+
+.vercel
+.env*
