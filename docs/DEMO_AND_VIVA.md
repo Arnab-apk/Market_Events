@@ -41,7 +41,7 @@ fixture prices are constant-growth paths, so they show the mechanics only.
 
 ## Streamlit walkthrough (fallback path)
 
-Start Streamlit using the command in the [user guide](USER_GUIDE.md) ("Start locally"). Open the page and observe that no demo or database is created. Select **Load synthetic demo (replay)** and explicitly identify the synthetic provenance. Its decision cutoff is 12 January 2026, 17:30 IST / noon UTC.
+Start Streamlit using the command in the [user guide](USER_GUIDE.md) ("Start locally (Streamlit)"). Open the page and observe that no demo or database is created. Select **Load synthetic demo (replay)** and explicitly identify the synthetic provenance. Its decision cutoff is 12 January 2026, 17:30 IST / noon UTC.
 
 The demo action is in the main-area quick start and opens **Review saved results**. Begin with the human-readable evidence label, signed score and percentage coverage. Explain that coverage is available evidence weight, not confidence. Then inspect the source and evidence tabs. Raw source/event records, observation diagnostics, policy/repeat controls and configuration remain in labelled expanders. In **Analyse an article**, use **Open saved result** after the explicit analysis submit; changing an article or filter does not start inference.
 

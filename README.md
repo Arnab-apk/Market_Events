@@ -86,7 +86,7 @@ Using real data or live models (Upstox token, Ollama or an OpenAI-compatible ser
 ## Further reading
 
 - [Documentation index](docs/README.md): every document, grouped
-- [User guide](docs/USER_GUIDE.md): detailed operation, Streamlit, CLI, interpretation (the former README)
+- [User guide](docs/USER_GUIDE.md): how to use the website step by step, reading results, troubleshooting
 - [System architecture](docs/SYSTEM_ARCHITECTURE.md) and [code map](docs/CODEBASE_GUIDE.md)
 - [Experiments and their limits](docs/EXPERIMENTS.md)
 - [Presentation pack](docs/presentation/SLIDES.md) and [demo and viva notes](docs/DEMO_AND_VIVA.md)

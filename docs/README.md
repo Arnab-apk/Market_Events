@@ -8,7 +8,7 @@ Signal Fusion in Indian Financial Markets*, implemented as **Market Events**. Ne
 
 | Document | What it is for |
 | --- | --- |
-| [USER_GUIDE.md](USER_GUIDE.md) | Full operating guide: web and Streamlit workflows, CLI commands, interpretation and limits (the former README) |
+| [USER_GUIDE.md](USER_GUIDE.md) | Step-by-step website guide: starting it, every page, reading results, own data, troubleshooting; Streamlit and CLI in the appendix |
 | [CODEBASE_GUIDE.md](CODEBASE_GUIDE.md) | Code map: which module to read first and where each calculation lives |
 | [LIVE_SETUP.md](LIVE_SETUP.md) | Optional setup for real Upstox market data, news and live language models |
 
