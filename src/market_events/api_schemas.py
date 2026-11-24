@@ -113,3 +113,29 @@ class BatchRequest(WebRequest):
     decision_time: AwareTime
     policy: ExecutionPolicy = ExecutionPolicy.slm_delegate
     limit: int = Field(default=10, ge=1, le=100)
+
+
+class PaperScreenRequest(WebRequest):
+    """Body for POST /api/paper/screen: the research cutoff."""
+
+    as_of: AwareTime
+
+
+class PaperSizeRequest(PaperScreenRequest):
+    """Body for POST /api/paper/size: cutoff and an optional INR budget override."""
+
+    budget_inr: float | None = Field(default=None, gt=0, le=1e12)
+
+
+class PaperHolding(WebRequest):
+    """One existing paper holding in whole shares; it is valued from the ledger."""
+
+    instrument_id: str = Field(min_length=1, max_length=300)
+    quantity: int = Field(ge=0, le=10**9)
+
+
+class PaperRebalanceRequest(PaperScreenRequest):
+    """Body for POST /api/paper/rebalance: paper holdings and cash at a cutoff."""
+
+    positions: list[PaperHolding] = Field(default_factory=list, max_length=200)
+    cash_inr: float = Field(ge=0, le=1e12)
