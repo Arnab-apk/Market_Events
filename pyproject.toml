@@ -7,9 +7,12 @@ name = "market-events"
 version = "0.1.0"
 description = "Auditable financial event research and cross-market evidence"
 requires-python = ">=3.10"
-dependencies = ["pydantic>=2.10,<3", "streamlit>=1.42,<2", "pandas>=2.2,<3", "numpy>=2.1,<3", "requests>=2.32,<3", "python-dotenv>=1,<2", "tzdata>=2025.1", "fastapi>=0.115,<1"]
+# Core = what the FastAPI service needs (this is what Vercel installs). Streamlit is only for the
+# older app.py UI, so it is an extra; requirements.lock still pins it for local installs.
+dependencies = ["pydantic>=2.10,<3", "pandas>=2.2,<3", "numpy>=2.1,<3", "requests>=2.32,<3", "python-dotenv>=1,<2", "tzdata>=2025.1", "fastapi>=0.115,<1"]
 
 [project.optional-dependencies]
+ui = ["streamlit>=1.42,<2"]
 dev = ["pytest>=8,<10", "ruff>=0.11,<1", "httpx>=0.28,<1"]
 web = ["uvicorn>=0.34,<1"]
 
