@@ -1,0 +1,12 @@
+{
+  "version": "screener-v1",
+  "use_latest_run_per_company": true,
+  "rules": [
+    {"field": "evidence_score", "op": ">=", "value": 0.15},
+    {"field": "coverage", "op": ">=", "value": 0.6},
+    {"field": "direction", "op": "==", "value": "positive"},
+    {"field": "rsi14", "op": "<=", "value": 70}
+  ],
+  "rank_by": "evidence_score",
+  "max_shortlist": 5
+}
