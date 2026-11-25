@@ -1,97 +1,67 @@
 "use client";
 
-// App shell: sidebar, top bar, the single workspace switcher, the always-visible synthetic/replay ribbon
-// and the section router. Loads GET /api/workspace, owns the `api` helper every panel uses, and runs
-// POST /api/demo for "Load synthetic demo". Also exports shared UI pieces (PageHeading, Metric, Empty, JsonView, Status).
-import { useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+// App shell: top bar (logo, main tabs, workspace switcher, ⚙ Settings), the demo banner, the API-down
+// notice, a toast for action notices, the footer and the view router (routes.ts → panels). Loads
+// GET /api/workspace, owns the `api` helper every panel uses, and runs POST /api/demo for "Load synthetic
+// demo". Also exports shared pieces (PageHeading, Metric, Empty, JsonView, Status) used by the panels.
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Activity, ArrowDownToLine, BarChart3, Database, FlaskConical, FolderOpen, Layers3,
-  LayoutDashboard, LoaderCircle, Menu, Newspaper, Pause, Play, PlugZap, RefreshCw, ShieldCheck, X,
-} from "lucide-react";
+import { Layers3, LoaderCircle, RefreshCw, Settings } from "lucide-react";
 import { Api, Scope, Workspace, human } from "./types";
 import { ConnectionsPanel, EventsPanel, ImportsPanel, SavedPanel, ComparisonsPanel, TechnicalsPanel } from "./workspace-panels";
 import StrategyLab from "./strategy-lab";
-import { useReducedMotion } from "./use-reduced-motion";
-import PremiumOverview from "./premium-overview";
-import SpotlightCard from "./react-bits/SpotlightCard";
-import AnimatedContent from "./react-bits/AnimatedContent";
-import ThemeToggle, { useTheme } from "./theme-toggle";
-import { EffectsPaused, GlossaryButton, Term, friendlyError } from "./ui";
-import { TourBar } from "./demo-tour";
+import Home from "./premium-overview";
+import AppearancePicker from "./theme-toggle";
+import { GlossaryList, Term, friendlyError } from "./ui";
+import { SubTabs, Toast } from "./simple-ui";
+import { normalizeView, type View } from "./routes";
+import { resetTour } from "./demo-tour";
+import packageInfo from "../../package.json";
 
-const subscribeMobile = (notify: () => void) => {
-  const media = window.matchMedia("(max-width: 1100px)");
-  media.addEventListener("change", notify);
-  return () => media.removeEventListener("change", notify);
-};
-const readMobile = () => window.matchMedia("(max-width: 1100px)").matches;
-const serverMobile = () => false;
+const PortfolioPanel = dynamic(() => import("./portfolio-panel"));
 
-const navigation = [
-  { id: "overview", label: "Overview", short: "Overview", icon: LayoutDashboard },
-  { id: "events", label: "Event research", short: "Research", icon: Newspaper },
-  { id: "technicals", label: "Price indicators", short: "Indicators", icon: Activity },
-  { id: "lab", label: "Strategy lab", short: "Strategy lab", icon: FlaskConical },
-  { id: "saved", label: "Saved results", short: "Results", icon: FolderOpen },
-  { id: "comparisons", label: "Comparisons", short: "Compare", icon: BarChart3 },
-  { id: "imports", label: "Import evidence", short: "Import", icon: ArrowDownToLine },
-  { id: "connections", label: "Connections", short: "Connections", icon: PlugZap },
+const TABS: { id: View; label: string; extra?: Record<string, string> }[] = [
+  { id: "home", label: "Home" },
+  { id: "portfolio", label: "Portfolio" },
+  { id: "analyse", label: "Analyse" },
+  { id: "results", label: "Results" },
+  { id: "lab", label: "Lab", extra: { tab: "indicators" } },
 ];
-// One switcher, three plainly named options (UX_AUDIT §3.5).
+// One switcher, three plainly named options.
 const WORKSPACES = [
-  { value: "demo:demo", label: "Synthetic demo (offline)" },
+  { value: "demo:demo", label: "Demo data (offline)" },
   { value: "local:live", label: "My data – real companies" },
   { value: "local:demo", label: "My data – demo companies" },
 ];
+const SUBTABS = {
+  results: [["saved", "Saved runs"], ["compare", "Compare methods"]],
+  lab: [["indicators", "Indicators"], ["backtest", "Backtest"], ["montecarlo", "Monte Carlo"]],
+  settings: [["import", "Import data"], ["connections", "Connections"], ["glossary", "Glossary"], ["appearance", "Appearance"], ["about", "About"]],
+} as const;
 
 export default function ResearchApp() {
   const parameters = useSearchParams();
-  const [effectsPaused, setEffectsPaused] = useState(false);
   // Held above the keyed shell so a notice survives switching into the demo workspace.
   const [notice, setNotice] = useState("");
   const scope: Scope = {
     workspace: parameters.get("workspace") === "demo" ? "demo" : "local",
     universe: parameters.get("workspace") === "demo" || parameters.get("universe") === "demo" ? "demo" : "live",
   };
-  const section = navigation.find(item => item.id === parameters.get("view"))?.id || "overview";
-  return <WorkspaceShell key={`${scope.workspace}:${scope.universe}`} scope={scope} section={section} effectsPaused={effectsPaused} onEffectsPause={() => setEffectsPaused(value => !value)} notice={notice} setNotice={setNotice} />;
+  const route = normalizeView(parameters.get("view"), parameters.get("tab"));
+  return <WorkspaceShell key={`${scope.workspace}:${scope.universe}`} scope={scope} view={route.view} tab={route.tab} term={parameters.get("term") || ""} notice={notice} setNotice={setNotice} />;
 }
 
 export type Href = (view: string, extra?: Record<string, string>) => string;
-export type PanelProps = { api: Api; data: Workspace; refresh: () => Promise<void>; href: Href };
+export type PanelProps = { api: Api; data: Workspace; refresh: () => Promise<void>; href: Href; tab?: string };
 
-function WorkspaceShell({ scope, section, effectsPaused, onEffectsPause, notice, setNotice }: { scope: Scope; section: string; effectsPaused: boolean; onEffectsPause: () => void; notice: string; setNotice: (value: string) => void }) {
+function WorkspaceShell({ scope, view, tab, term, notice, setNotice }: { scope: Scope; view: View; tab: string; term: string; notice: string; setNotice: (value: string) => void }) {
   const { workspace, universe } = scope;
   const router = useRouter();
   const [data, setData] = useState<Workspace | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [menu, setMenu] = useState(false);
-  const reducedMotion = useReducedMotion();
-  const motionOff = effectsPaused || reducedMotion;
-  const isMobile = useSyncExternalStore(subscribeMobile, readMobile, serverMobile);
-  const sidebarRef = useRef<HTMLElement>(null);
-  const menuButtonRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (!isMobile || !menu) return;
-    const sidebar = sidebarRef.current;
-    const trigger = menuButtonRef.current;
-    const focusable = () => Array.from(sidebar?.querySelectorAll<HTMLElement>('a[href],button:not(:disabled),select:not(:disabled)') || []);
-    focusable()[0]?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { event.preventDefault(); setMenu(false); }
-      if (event.key === "Tab") {
-        const elements = focusable();
-        const first = elements[0], last = elements.at(-1);
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => { document.removeEventListener("keydown", onKeyDown); trigger?.focus(); };
-  }, [isMobile, menu]);
   const api: Api = useCallback(async <T,>(endpoint: string, body?: unknown): Promise<T> => {
     const query = new URLSearchParams({ workspace, universe });
     let response: Response;
@@ -121,71 +91,114 @@ function WorkspaceShell({ scope, section, effectsPaused, onEffectsPause, notice,
       .catch(reason => { if (active) setError(reason.message); });
     return () => { active = false; };
   }, [api]);
-  const link = (view: string, target: Scope, extra?: Record<string, string>) => `/?${new URLSearchParams({ view, workspace: target.workspace, universe: target.universe, ...extra })}`;
-  const href = (view: string, extra?: Record<string, string>) => link(view, scope, extra);
-  const demoHref = (view: string, extra?: Record<string, string>) => link(view, { workspace: "demo", universe: "demo" }, extra);
+  const dismiss = useCallback(() => setNotice(""), [setNotice]);
+  const link = (target: string, to: Scope, extra?: Record<string, string>) => `/?${new URLSearchParams({ view: target, workspace: to.workspace, universe: to.universe, ...extra })}`;
+  const href: Href = (target, extra) => link(target, scope, extra);
+  const demoHref: Href = (target, extra) => link(target, { workspace: "demo", universe: "demo" }, extra);
   async function loadDemo() {
     setBusy(true); setError("");
     try {
       await api("demo", {});
       if (scope.workspace === "demo") await refresh();
-      router.push(demoHref("overview"));
-      setNotice("Synthetic replay demo loaded. These fixtures do not validate real-market performance.");
+      router.push(demoHref("home"));
+      setNotice("Synthetic replay demo loaded. Everything in it is invented test data.");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Demo could not be loaded"); }
     finally { setBusy(false); }
   }
-  const props = data ? { api, data, refresh, href } : null;
+  const reload = () => { setBusy(true); refresh().catch(reason => setError(reason.message)).finally(() => setBusy(false)); };
+  const props: PanelProps | null = data ? { api, data, refresh, href, tab } : null;
   const demo = scope.workspace === "demo";
   const unreachable = /Can't reach the research engine/.test(error);
-  return <EffectsPaused value={motionOff}><div className="app-shell" data-motion={motionOff ? "paused" : "playing"}>
+  const apiState = data ? "API connected" : error ? "API unreachable" : "Connecting…";
+  const subTabs = (id: keyof typeof SUBTABS, label: string, vertical = false) => <SubTabs label={label} current={tab} vertical={vertical}
+    tabs={SUBTABS[id].map(([value, text]) => ({ id: value, label: text, href: href(id, { tab: value }) }))} />;
+
+  return <div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to content</a>
-    {menu && <button className="nav-scrim" onClick={() => setMenu(false)} aria-label="Close navigation" />}
-    <aside ref={sidebarRef} id="workspace-navigation" inert={isMobile && !menu} className={`sidebar ${menu ? "is-open" : ""}`}>
-      <Link className="brand" href={href("overview")}><span className="brand-mark"><Activity size={23} aria-hidden="true" /></span><span>market<span className="brand-light">events</span><span className="sr-only"> home</span><small aria-hidden="true">RESEARCH WORKSPACE</small></span></Link>
-      <nav aria-label="Main navigation">{navigation.map((item, index) => <div key={item.id}>{index === 6 && <div className="sidebar-label data-label">DATA & SETUP</div>}<Link href={href(item.id)} className={`nav-item ${section === item.id ? "active" : ""}`} aria-current={section === item.id ? "page" : undefined} onClick={() => setMenu(false)}><item.icon size={18} aria-hidden="true" /><span>{item.label}</span>{item.id === "saved" && Boolean(data?.runs.length) && <span className="nav-count">{data?.runs.length}</span>}{item.id === "lab" && <span className="nav-tag">2020</span>}</Link></div>)}</nav>
-      <div className="sidebar-bottom"><div className="research-note"><ShieldCheck size={18} aria-hidden="true" /><div><strong>Evidence comes first</strong><p>Every decision keeps its sources, timing and audit trail.</p></div></div><div className="sidebar-footer"><GlossaryButton className="button secondary glossary-sidebar" label="Glossary of terms" /></div></div>
-    </aside>
-    <div className="main-wrap"><header className="topbar">
-      <Link className="desktop-brand" href={href("overview")}><span className="brand-mark"><Activity size={18} aria-hidden="true" /></span><span>market<span className="brand-light">events</span><span className="sr-only"> home</span></span></Link>
-      <div className="breadcrumb"><button ref={menuButtonRef} className="icon-button mobile-menu" aria-label="Open navigation" aria-expanded={menu} aria-controls="workspace-navigation" onClick={() => setMenu(true)}><Menu size={20} /></button><strong>{navigation.find(item => item.id === section)?.label}</strong></div>
-      <nav className="desktop-nav" aria-label="Workspace sections">{navigation.map(item => <Link key={item.id} title={item.label} href={href(item.id)} aria-current={section === item.id ? "page" : undefined}>{item.short}</Link>)}</nav>
-      <div className="topbar-right"><ThemeToggle />{!reducedMotion && <button className="motion-toggle" aria-pressed={effectsPaused} title="Pause or resume the animated background and number count-ups" onClick={onEffectsPause}>{effectsPaused ? <Play size={12} aria-hidden="true" /> : <Pause size={12} aria-hidden="true" />}<span>{effectsPaused ? "Effects paused" : "Effects on"}</span></button>}
-        <GlossaryButton className="icon-button glossary-top" label="Glossary" />
-        <label className="header-workspace"><Database size={12} aria-hidden="true" /><span className="sr-only">Workspace</span><select disabled={busy} value={`${scope.workspace}:${scope.universe}`} onChange={event => { const [next, nextUniverse] = event.target.value.split(":") as [Scope["workspace"], Scope["universe"]]; router.push(link(section, { workspace: next, universe: nextUniverse })); }}>{WORKSPACES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <span className="connection-state" role="status"><i className={data ? "connected" : error ? "down" : ""} aria-hidden="true" /><span>{data ? "API connected" : error ? "API unreachable" : "Connecting…"}</span></span>
-      </div></header>
-      {demo && <div className="demo-ribbon" role="note"><ShieldCheck size={13} aria-hidden="true" /><strong>Synthetic demo · recorded replay</strong><span>Invented articles and prices with pre-recorded model answers. Offline; nothing here is real-market evidence.</span><Term name="Synthetic demo">What does this mean?</Term></div>}
-      <main id="main-content" className="main-content">
-        {error && <div className="alert error" role="alert"><strong>{unreachable ? "Can't reach the research engine." : "Could not complete the request"}</strong><p>{unreachable ? "The local Python service on port 8000 isn't responding. Start the dev stack with npm.cmd run dev, then retry." : error}</p><button className="text-button" onClick={() => refresh().catch(reason => setError(reason.message))}>Retry</button></div>}
-        {notice && <div className="alert" role="status">{notice}<button className="icon-button" aria-label="Dismiss notice" onClick={() => setNotice("")}><X size={16} /></button></div>}
-        {!data && !error && <div className="loading-state"><LoaderCircle className="spin" size={25} /><p>Opening your research workspace…</p></div>}
-        {data && props && section !== "overview" && <TourBar data={data} links={{ href, demoHref }} onDemo={loadDemo} busy={busy} />}
-        {data && props && <AnimatedContent key={section} trigger="mount" distance={10} duration={0.28} ease="power2.out" initialOpacity={0}>
-          {section === "overview" && <PremiumOverview api={api} data={data} href={href} demoHref={demoHref} onDemo={loadDemo} busy={busy} />}
-          {section === "events" && <EventsPanel {...props} />}
-          {section === "saved" && <SavedPanel {...props} />}
-          {section === "imports" && <ImportsPanel {...props} />}
-          {section === "connections" && <ConnectionsPanel {...props} />}
-          {section === "comparisons" && <ComparisonsPanel {...props} />}
-          {section === "technicals" && <TechnicalsPanel {...props} />}
-          {section === "lab" && <StrategyLab {...props} />}
-        </AnimatedContent>}
-        <footer className="main-footer"><span><ShieldCheck size={13} aria-hidden="true" /> Research, with a record.</span><span>Historical strategy window ends 31 Dec 2020 · No order execution</span><button className="text-button" onClick={() => { setBusy(true); refresh().catch(reason => setError(reason.message)).finally(() => setBusy(false)); }} disabled={busy}><RefreshCw size={13} aria-hidden="true" />Refresh workspace</button></footer>
-      </main>
-    </div>
-  </div></EffectsPaused>;
+    <header className="topbar"><div className="topbar-inner">
+      <Link className="brand" href={href("home")}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 17l5-6 4 4 8-10" /></svg><span>marketevents</span><span className="sr-only"> home</span></Link>
+      <nav className="main-tabs" aria-label="Main">{TABS.map(item => <Link key={item.id} href={href(item.id, item.extra)} aria-current={view === item.id ? "page" : undefined}>{item.label}</Link>)}</nav>
+      <div className="topbar-tools">
+        <label className="workspace-select"><span className="sr-only">Data</span><select disabled={busy} value={`${workspace}:${universe}`} onChange={event => {
+          const [next, nextUniverse] = event.target.value.split(":") as [Scope["workspace"], Scope["universe"]];
+          router.push(link(view, { workspace: next, universe: nextUniverse }, tab ? { tab } : undefined));
+        }}>{WORKSPACES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <Link className="icon-button settings-button" href={href("settings")} aria-label="Settings: import data, connections, glossary" title={apiState} aria-current={view === "settings" ? "page" : undefined}><Settings size={20} aria-hidden="true" /><i className={`api-dot ${data ? "up" : error ? "down" : ""}`} aria-hidden="true" /></Link>
+      </div>
+    </div></header>
+    {universe === "demo" && <div className="demo-ribbon" role="note"><p><span className="demo-badge">{demo ? "Demo mode" : "Demo companies"}</span><span>{demo ? "All articles, prices and model answers are invented test data. Not advice; nothing here places orders." : "Using local data for the demo company universe."}</span><Link href={href("settings", { tab: "glossary", term: "Synthetic demo" })}>What does this mean?</Link></p></div>}
+    {error && <div className="api-alert" role="alert"><p><strong>{unreachable ? "Can't reach the research engine." : "Could not complete the request."}</strong> {unreachable ? "The local Python service on port 8000 isn't responding. Start the dev stack with npm.cmd run dev, then retry." : error}</p><button type="button" className="button secondary" onClick={reload} disabled={busy}>Retry</button></div>}
+    <main id="main-content" className="content">
+      {!data && !error && <div className="loading-state"><LoaderCircle className="spin" size={24} aria-hidden="true" /><p>Opening your research workspace…</p></div>}
+      {data && props && <>
+        {view === "home" && <Home api={api} data={data} href={href} demoHref={demoHref} realDataHref={link("settings", { workspace: "local", universe: "live" }, { tab: "connections" })} onDemo={loadDemo} busy={busy} />}
+        {view === "portfolio" && <PortfolioPanel api={api} data={data} scope={scope} href={href} demoHref={demoHref} />}
+        {view === "analyse" && <EventsPanel {...props} />}
+        {view === "results" && <div className="view-stack">
+          <PageTitle title="Results" description="Every saved analysis, and how the three methods compare." />
+          {subTabs("results", "Results sections")}
+          {tab === "compare" ? <ComparisonsPanel {...props} /> : <SavedPanel {...props} />}
+        </div>}
+        {view === "lab" && <div className="view-stack">
+          <PageTitle title="Lab" description="Price indicators, backtests and Monte Carlo on saved daily prices." />
+          <p className="lab-banner" role="note"><strong>Historical study</strong> · data ends 31 Dec 2020 · not a forecast</p>
+          {subTabs("lab", "Lab sections")}
+          {tab === "indicators" ? <TechnicalsPanel {...props} /> : <StrategyLab {...props} tab={tab === "montecarlo" ? "montecarlo" : "backtest"} />}
+        </div>}
+        {view === "settings" && <div className="view-stack">
+          <PageTitle title="Settings" description="Import data, connections, glossary and appearance." />
+          <div className="settings-layout">
+            <aside className="settings-nav">{subTabs("settings", "Settings sections", true)}</aside>
+            <div className="settings-body">
+              {tab === "import" && <ImportsPanel {...props} />}
+              {tab === "connections" && <>
+                <div className="api-status card"><span><i className={`api-dot ${data ? "up" : error ? "down" : ""}`} aria-hidden="true" />{apiState}</span><span className="muted">Workspace: {human(data.provenance || data.workspace)}</span><button type="button" className="button secondary" onClick={reload} disabled={busy}><RefreshCw size={15} aria-hidden="true" />Refresh workspace</button></div>
+                <ConnectionsPanel {...props} />
+              </>}
+              {tab === "glossary" && <section className="card" aria-labelledby="glossary-title"><h2 id="glossary-title">Glossary</h2><p className="muted section-note">Every number and label in plain English. Underlined terms on other pages show the same text on hover or focus.</p><GlossaryList key={term} initial={term} /></section>}
+              {tab === "appearance" && <section className="card" aria-labelledby="appearance-title"><h2 id="appearance-title">Appearance</h2><p className="muted section-note">Light is the default. Your choice is saved in this browser.</p><AppearancePicker /></section>}
+              {tab === "about" && <About />}
+            </div>
+          </div>
+        </div>}
+      </>}
+    </main>
+    <footer className="site-footer"><p>Research tool, not advice · Strategy history ends 31 Dec 2020 · No order execution</p></footer>
+    <Toast message={notice} onDismiss={dismiss} />
+  </div>;
 }
 
-export function PageHeading({ eyebrow, title, description, children }: { eyebrow: string; title: string; description: ReactNode; children?: ReactNode }) {
-  return <div className="page-heading"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>{children && <div className="heading-actions">{children}</div>}</div>;
+function PageTitle({ title, description }: { title: string; description: ReactNode }) {
+  return <div className="page-title"><h1>{title}</h1><p>{description}</p></div>;
 }
+
+function About() {
+  return <section className="card about" aria-labelledby="about-title">
+    <h2 id="about-title">About marketevents</h2>
+    <p>A research tool that turns a dated news story into evidence you can check: which company, what event, what the prices did up to the decision time, and why it got its verdict. It is <strong>not advice</strong> and it <strong>never places orders</strong>.</p>
+    <ul>
+      <li>The <Term name="Signed evidence score">evidence score</Term> measures evidence strength. It is not a probability or a forecast.</li>
+      <li>Historical strategy studies stop at 31 Dec 2020 by design.</li>
+      <li>Demo data is invented: articles, prices and model answers are synthetic test fixtures.</li>
+    </ul>
+    <h3>Guided tour</h3>
+    <p><button type="button" className="button secondary" onClick={resetTour}>Restart the tour</button> <span className="muted">Shows the “New here?” steps on Home again.</span></p>
+    <h3>Licences</h3>
+    <p>Charts: TradingView Lightweight Charts (Apache 2.0). Icons: Lucide (ISC). The optional hosted chart in Lab › Indicators is loaded from TradingView only when you turn it on. Earlier versions used decorative React Bits effects (MIT + Commons Clause); the simple UI removed them.</p>
+    <p className="muted">Version {packageInfo.version}</p>
+  </section>;
+}
+
+/** @deprecated The shell renders the page h1; kept for panels that still use it. Renders an h2 block. */
+export function PageHeading({ title, description, children }: { eyebrow?: string; title: string; description: ReactNode; children?: ReactNode }) {
+  return <div className="page-heading"><div><h2>{title}</h2><p>{description}</p></div>{children && <div className="heading-actions">{children}</div>}</div>;
+}
+/** A labelled number tile (kept for the strategy lab). */
 export function Metric({ label, value, detail, icon, term, tone }: { label: string; value: ReactNode; detail?: ReactNode; icon?: ReactNode; term?: string; tone?: "positive" | "negative" }) {
-  const paused = useContext(EffectsPaused);
-  const theme = useTheme();
-  return <SpotlightCard className="metric" theme={theme} paused={paused} spotlightColor="#b9ff66" intensity={0.12} borderGlow={0.7} spotlightSize={280} proximity={40} flare={false}><div className="metric-label">{term ? <Term name={term}>{label}</Term> : label}{icon}</div><strong className={tone ? `tone-${tone}` : undefined}>{value}</strong>{detail && <span>{detail}</span>}</SpotlightCard>;
+  return <div className="metric"><div className="stat-label">{term ? <Term name={term}>{label}</Term> : label}{icon}</div><strong className={`stat-value${tone ? ` tone-${tone}` : ""}`}>{value}</strong>{detail && <span className="stat-detail">{detail}</span>}</div>;
 }
 export function Empty({ title, description, action }: { title: string; description: ReactNode; action?: ReactNode }) {
-  return <div className="empty-state"><div className="empty-icon"><Layers3 size={25} aria-hidden="true" /></div><h3>{title}</h3><p>{description}</p>{action}</div>;
+  return <div className="empty-state"><Layers3 size={24} aria-hidden="true" /><h3>{title}</h3><p>{description}</p>{action}</div>;
 }
 export function JsonView({ value, title = "Inspect retained data" }: { value: unknown; title?: string }) {
   return <details className="json-view"><summary>{title}</summary><pre>{JSON.stringify(value, null, 2)}</pre></details>;

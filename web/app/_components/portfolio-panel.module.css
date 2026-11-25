@@ -1,0 +1,27 @@
+.import p { margin-top: 4px; }
+.import code { overflow-wrap: anywhere; }
+.filename { overflow-wrap: anywhere; }
+.rowError { color: var(--mode-danger); white-space: normal; }
+.evidenceList { list-style: none; padding: 0; margin: 0; }
+.evidenceList > li { border-block-start: 1px solid var(--mode-border); padding-block: 12px; overflow-wrap: anywhere; }
+.evidenceList > li > p { margin-block: 4px 0; }
+
+.allocation {
+  display: grid;
+  gap: 6px;
+  min-width: 86px;
+  font-variant-numeric: tabular-nums;
+}
+
+.track {
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--mode-accent-bg);
+}
+
+.track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mode-primary);
+}

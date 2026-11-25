@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import requests
 
-from market_events.config import ModelSettings, Settings
+from market_events.config import ModelSettings, Settings, load_settings
 from market_events.model_client import BudgetExceeded, ModelClient, ModelError
 from market_events.schemas import FilterDecision
 from test_routing import article
@@ -67,6 +67,52 @@ def test_unknown_usage_stays_unknown():
     assert client.calls[0].input_tokens is None
     assert client.calls[0].output_tokens is None
     assert session.requests[0][1]["json"]["stream"] is False
+
+
+def test_sarvam_v1_uses_the_task_schema_without_reasoning():
+    config = settings()
+    config.slm = ModelSettings(
+        provider="openai_compatible",
+        base_url="https://api.sarvam.ai/v1",
+        model="sarvam-105b-conversations",
+        api_key="test-key",
+    )
+    session = Session([{"choices": [{"message": {"content": json.dumps(decision())}}]}])
+    client = ModelClient(config, "run", session)
+    client.ask("filter", article(), FilterDecision, role="slm")
+
+    args, request = session.requests[0]
+    assert args == ("https://api.sarvam.ai/v1/chat/completions",)
+    assert request["headers"]["Authorization"] == "Bearer test-key"
+    assert request["json"]["reasoning_effort"] is None
+    assert request["json"]["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "FilterDecision",
+            "schema": FilterDecision.model_json_schema(),
+            "strict": True,
+        },
+    }
+
+
+def test_sarvam_environment_key_is_shared_only_at_the_sarvam_endpoint(monkeypatch, tmp_path):
+    for role in ("SLM", "LLM"):
+        for field in ("PROVIDER", "BASE_URL", "MODEL", "API_KEY"):
+            monkeypatch.delenv(f"{role}_{field}", raising=False)
+    monkeypatch.setenv("SARVAM_API_KEY", "test-sarvam-key")
+    config = load_settings(tmp_path)
+    assert config.slm.model == "sarvam-105b-conversations"
+    assert config.llm.model == "sarvam-105b"
+    for model in (config.slm, config.llm):
+        assert model.base_url == "https://api.sarvam.ai/v1"
+        assert model.api_key.get_secret_value() == "test-sarvam-key"
+
+    monkeypatch.setenv("LLM_PROVIDER", "openai_compatible")
+    monkeypatch.setenv("LLM_BASE_URL", "https://another.example/v1")
+    monkeypatch.setenv("LLM_MODEL", "another-model")
+    other = load_settings(tmp_path).llm
+    assert other.model == "another-model"
+    assert not other.api_key.get_secret_value()
 
 
 def test_malformed_and_transient_calls_logged_with_bounded_retry():

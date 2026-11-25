@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Market Events Portfolio</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <h1>Market Events</h1>
+    <div class="modes" role="group" aria-label="Evidence source">
+      <button id="real" type="button" aria-pressed="true">Real data</button>
+      <button id="demo" type="button" aria-pressed="false">Demo</button>
+    </div>
+    <p id="status" role="status">Loading the latest saved analysis…</p>
+    <section id="preview" hidden aria-labelledby="story">
+      <p id="source" class="source"></p>
+      <h2 id="story"></h2>
+      <p id="cutoff" class="source cutoff"></p>
+      <p class="metric"><span id="verdict"></span><strong id="score"></strong></p>
+      <div id="scale" class="scale" aria-hidden="true"><span id="marker"></span></div>
+      <div id="scale-labels" class="metric scale-labels" aria-hidden="true"><span>−1</span><span>0</span><span>+1</span></div>
+      <p class="metric coverage"><span>Evidence coverage</span><strong id="coverage"></strong></p>
+    </section>
+    <a id="details" href="http://127.0.0.1:3000/?view=results&amp;tab=saved&amp;workspace=local&amp;universe=live" target="_blank" rel="noopener noreferrer">Open for analysis</a>
+    <a class="portfolio" href="http://127.0.0.1:3000/?view=portfolio&amp;workspace=local&amp;universe=live" target="_blank" rel="noopener noreferrer">Open Portfolio</a>
+  </main>
+  <script src="popup.js" defer></script>
+</body>
+</html>

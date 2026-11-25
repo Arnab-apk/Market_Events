@@ -1,8 +1,18 @@
 # Market Events: web dashboard
 
 A Next.js (App Router) front end for the Python research pipeline in `src/market_events/`.
-It is a single page: the `?view=` query selects a section, and `?workspace=` / `?universe=`
-select which local database and company universe the Python API reads.
+The dashboard navigation has **Home**, **Portfolio**, **Analyse**, **Results** and **Lab**, plus a
+**Settings** gear. **Portfolio** imports a holdings CSV in the browser and opens research for each
+company.
+**Home** opens **Overview**. **Results** opens **Saved runs**, with **Compare methods** alongside it.
+**Lab** opens **Indicators**, alongside **Backtest** and **Monte Carlo**. **Settings** opens
+**Import data**, alongside **Connections**, **Glossary**, **Appearance** and **About**.
+
+`?view=` selects the main view and `?tab=` selects a section inside Results, Lab or Settings.
+`?workspace=` and `?universe=` select the database and company universe the Python API reads.
+Old links still open the corresponding new section, including `?view=events` for Analyse,
+`?view=saved` for Saved runs and `?view=lab` without a tab for Backtest. The **Lab** tab in the
+header links to `?view=lab&tab=indicators`.
 
 ## Folder structure
 
@@ -17,36 +27,38 @@ web/
 │  ├─ _lib/request-origin.ts            Same-machine origin check used by the proxy
 │  ├─ _components/
 │  │  ├─ research-app.tsx       App shell, navigation, workspace loading, shared UI pieces
-│  │  ├─ premium-overview.tsx   Overview section
-│  │  ├─ demo-tour.tsx          Guided tour (React Bits Stepper) on the overview + tour bar on demo pages
+│  │  ├─ routes.ts              Current routes and legacy URL mapping
+│  │  ├─ premium-overview.tsx   Home overview, company cards and latest stories
+│  │  ├─ demo-tour.tsx          Home quick start and tour progress
 │  │  ├─ glossary.ts            Plain-English intros and term definitions (from UX_AUDIT.md §3)
-│  │  ├─ ui.tsx                 <Term> tooltips, <Count>, date/time cutoff field, glossary drawer, error copy
-│  │  ├─ workspace-panels.tsx   Event research, Saved results, Import, Indicators, Connections, Comparisons
-│  │  ├─ strategy-lab.tsx       Strategy lab: history, backtest, Monte Carlo
-│  │  ├─ research-charts.tsx    PriceChart / EquityChart (lightweight-charts)
-│  │  ├─ workspace-summary.tsx  Summary strip under section headings
-│  │  ├─ theme-toggle.tsx       Light/dark toggle + useTheme()
+│  │  ├─ ui.tsx                 Term tooltips, decision-time field, glossary search and error messages
+│  │  ├─ simple-ui.tsx          Shared verdict, score, card, sub-tab and toast components
+│  │  ├─ workspace-panels.tsx   Analyse, Results, Indicators, Import data and Connections
+│  │  ├─ strategy-lab.tsx       Historical prices, Backtest and Monte Carlo
+│  │  ├─ research-charts.tsx    Price and equity charts plus opt-in TradingView
+│  │  ├─ theme-toggle.tsx       Light, Dark and System settings
 │  │  ├─ use-reduced-motion.ts  Reduced-motion hook
-│  │  ├─ types.ts               API response types + formatting helpers
-│  │  └─ react-bits/            Vendored React Bits: Aurora, SpotlightCard, Stepper, CountUp, AnimatedContent, ShinyText (see its README)
+│  │  └─ types.ts               API response types and formatting helpers
 │  └─ *.css                 Stylesheets, imported in this order by layout.tsx:
 │     ├─ tokens.css         Design tokens (CSS custom properties) for dark and light mode
 │     ├─ base.css           Element defaults, accessibility helpers, keyframes
-│     ├─ layout.css         App shell: sidebar, top bar, page heading, footer
+│     ├─ layout.css         App shell, top bar, page headings and footer
 │     ├─ components.css     Panels, forms, buttons, tables, pills, alerts, charts, result cards
 │     ├─ overview.css       Overview section and research guide
 │     └─ presentation.css   Projector readability overrides (loaded last)
 ├─ tests/
-│  ├─ demo-walkthrough.spec.ts   Playwright: the 7-step demo story in light/dark at 1366×768 and 1920×1080
+│  ├─ demo-walkthrough.spec.ts   Playwright: desktop light/dark, phone, navigation and demo flows
 │  ├─ screenshots/               Output of the walkthrough
 │  ├─ request-origin.test.mjs    Node unit tests for the origin guard
+│  ├─ routes.test.mjs            Node unit tests for current and legacy navigation
 │  └─ theme.test.mjs             Node unit tests for theme logic and colour-contrast thresholds (reads tokens.css)
 ├─ playwright.config.ts
 └─ package.json
 ```
 
-Some rules carry a `:root` prefix (for example `:root .panel`). This raises their specificity so the
-light/dark colour rules win over earlier structural rules. Keep the stylesheet import order unchanged.
+Light is the default. **Settings › Appearance** offers **Light**, **Dark** and **System** and saves
+the choice in the current browser. Use **Settings › About › Restart the tour** to restore the
+**New here?** strip after skipping it. Keep the stylesheet import order in `layout.tsx`.
 
 ## How the front end talks to the Python API
 
@@ -66,9 +78,10 @@ Browser ──fetch──▶ /api/research/<endpoint>?workspace=…&universe=…
 - On Vercel (`vercel.json` at the project root), the Python API runs as a private `api` service and
   Vercel fills in `MARKET_EVENTS_API_URL` itself. `vercel_app.py` copies the demo database to `/tmp`, so
   changes reset whenever a new instance starts. Writes are accepted only from the site's own origin.
-- Workspaces: `workspace=demo` uses the synthetic replay database (`data/web_demo.sqlite`);
-  `workspace=local` uses your own database. Nothing contacts a market data provider or a model
-  unless you press the button for that explicit action.
+- **Demo data (offline)** uses `workspace=demo` and the synthetic replay database
+  (`data/web_demo.sqlite` by default). Both **My data** options use `workspace=local` and select
+  their company universe with `universe=live` or `universe=demo`. Provider, model and hosted
+  TradingView requests each require an explicit action.
 
 ## Run, check and test
 
@@ -80,10 +93,12 @@ Run these from the project root (Windows: `npm.cmd`). Install the dependencies o
 | Same, for a presentation (production build, no dev overlay, no API hot reload) | `npm.cmd run build` then `npm.cmd run dev -- --stage` |
 | Type check + lint | `npm.cmd run check` |
 | Production build | `npm.cmd run build` |
-| Demo walkthrough (needs the dev stack running) | `cd web` then `npx playwright test` |
-| Unit tests (origin guard, theme) | `node --test web/tests/request-origin.test.mjs web/tests/theme.test.mjs` |
+| Demo walkthrough (needs the dev stack running) | `npm.cmd --prefix web run test:e2e` |
+| Unit tests (origin guard, theme, routes) | `node --test web/tests/request-origin.test.mjs web/tests/theme.test.mjs web/tests/routes.test.mjs` |
 
 `scripts/dev-web.mjs` starts both servers and restarts either one if it crashes. To keep the Python API
 running across source edits, set `MARKET_EVENTS_API_RELOAD=0`, which turns off its hot reload.
-Playwright uses the locally installed Chrome. Set `PLAYWRIGHT_CHANNEL=chromium` to use Playwright's
-bundled browser instead.
+Playwright uses the locally installed Chrome. Set `PLAYWRIGHT_CHANNEL=msedge` for Microsoft Edge
+or `PLAYWRIGHT_CHANNEL=chromium` for Playwright's bundled browser. Set `PLAYWRIGHT_BASE_URL` to
+test a separate dev stack. The walkthrough creates synthetic runs and writes screenshots under
+`web/tests/screenshots/` for 1366×768 and 1920×1080 in both themes, and 390×844 in light.

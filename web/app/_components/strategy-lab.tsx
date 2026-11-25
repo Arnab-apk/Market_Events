@@ -1,43 +1,46 @@
 "use client";
 
-// Strategy lab: local price history with indicators (POST /api/history), a backtest with fees and slippage
-// (POST /api/backtest, optional walk-forward split), a Monte Carlo bootstrap (POST /api/monte-carlo) and an optional TradingView widget.
+// Lab › Backtest and Lab › Monte Carlo. Local price history with indicators (POST /api/history), an optional
+// explicit provider download (POST /api/sync/historical), a backtest with fees and slippage (POST /api/backtest,
+// optional walk-forward split) and a Monte Carlo bootstrap of the backtest's own returns (POST /api/monte-carlo).
+// `tab` picks the part to show; state lives here, so switching between the two tabs keeps it.
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowDownToLine, FlaskConical, LoaderCircle, Pause, Play, RotateCcw, ShieldCheck } from "lucide-react";
-import { Empty, Metric, PageHeading } from "./research-app";
+import { ArrowDownToLine, LoaderCircle, Pause, Play, RotateCcw } from "lucide-react";
 import type { PanelProps } from "./research-app";
 import { downloadJson, format, percent, rupees } from "./types";
-import { INTROS, GLOSSARY } from "./glossary";
-import { Count, Term } from "./ui";
+import { GLOSSARY } from "./glossary";
+import { Term } from "./ui";
 import { markTourStep } from "./demo-tour";
 import type { Backtest, History, Simulation } from "./types";
 import { EquityChart, PriceChart } from "./research-charts";
-import { WorkspaceSummary } from "./workspace-summary";
-import { useTheme } from "./theme-toggle";
+import { StatTile } from "./simple-ui";
 
 type Manifest = Record<string, unknown>;
 type StudyHistory = History & { manifest?: Manifest };
 type Segment = { actual_start: string; actual_end: string; bars: number; metrics: Record<string, number | null>; open_position: Record<string, unknown> | null };
 type StudyBacktest = Backtest & { manifest?: Manifest; walk_forward?: { split_date: string; in_sample: Segment; out_of_sample: Segment; assumptions: string[] } | null };
 type StudySimulation = Simulation & { manifest?: Manifest };
+export type LabTab = "backtest" | "montecarlo";
 const END = "2020-12-31";
 const INDICATORS = [ ["sma20", "SMA 20"], ["sma50", "SMA 50"], ["sma200", "SMA 200"], ["ema20", "EMA 20"], ["ema50", "EMA 50"], ["rsi14", "RSI 14"], ["macd", "MACD"], ["bollinger", "Bollinger bands"], ["atr14", "ATR 14"], ["adx14", "ADX 14"], ["volume", "Volume"] ];
 const STRATEGIES = [ ["sma_cross", "SMA crossover"], ["ema_cross", "EMA crossover"], ["buy_hold", "Buy and hold"], ["rsi_reversion", "RSI reversion"], ["macd_cross", "MACD crossover"], ["bollinger_reversion", "Bollinger reversion"] ];
 /** One plain sentence per rule, including the fixed rules that have no parameters (UX_AUDIT §3.4). */
 const RULES: Record<string, string> = { sma_cross: GLOSSARY["SMA / EMA crossover"].text, ema_cross: GLOSSARY["SMA / EMA crossover"].text, buy_hold: GLOSSARY["Buy and hold"].text, rsi_reversion: GLOSSARY["RSI reversion"].text, macd_cross: GLOSSARY["MACD crossover"].text, bollinger_reversion: GLOSSARY["Bollinger reversion"].text };
 const LOW_SAMPLE = 30;
-const signed = (value: number) => `${value > 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
+const signed = (value: number | null | undefined) => value == null ? "—" : `${value > 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
 const message = (reason: unknown) => reason instanceof Error ? reason.message : "The request could not be completed.";
+const tone = (value: number | null | undefined) => value == null || value === 0 ? undefined : value > 0 ? "success" as const : "danger" as const;
+const lowSample = (result: StudyBacktest) => result.metrics.closed_trades != null && result.metrics.closed_trades < LOW_SAMPLE;
 
-export default function StrategyLab(props: PanelProps) {
+export default function StrategyLab(props: PanelProps & { tab?: string }) {
   const [receipt, setReceipt] = useState<Record<string, unknown> | null>(null);
   const identity = JSON.stringify([props.data.workspace, props.data.universe, props.data.observations_count, props.data.companies.map(company => [company.instrument_id, company.bars, company.end])]);
-  return <Study key={identity} {...props} receipt={receipt} onReceipt={setReceipt} />;
+  return <Study key={identity} {...props} tab={props.tab === "montecarlo" ? "montecarlo" : "backtest"} receipt={receipt} onReceipt={setReceipt} />;
 }
 
-function Study({ api, data, refresh, href, receipt, onReceipt }: PanelProps & {
-  receipt: Record<string, unknown> | null; onReceipt: (value: Record<string, unknown> | null) => void;
+function Study({ api, data, refresh, href, tab, receipt, onReceipt }: PanelProps & {
+  tab: LabTab; receipt: Record<string, unknown> | null; onReceipt: (value: Record<string, unknown> | null) => void;
 }) {
   const [company, setCompany] = useState(data.companies.find(item => item.research_bars > 0)?.instrument_id || data.companies[0]?.instrument_id || "");
   const [start, setStart] = useState("2015-01-01"), [end, setEnd] = useState(END);
@@ -97,34 +100,90 @@ function Study({ api, data, refresh, href, receipt, onReceipt }: PanelProps & {
     finally { if (mounted.current && ticket === sequence.current) setBusy(""); }
   }
   function toggleIndicator(key: string) { setSelected(previous => previous.includes(key) ? previous.filter(item => item !== key) : [...previous, key]); }
-  return <>
-    <PageHeading eyebrow="TEST A RULE. INSPECT THE EVIDENCE." title="Strategy lab" description={INTROS.lab}><span className="pill green"><FlaskConical size={13} /> HISTORICAL RESEARCH</span></PageHeading>
-    <WorkspaceSummary items={[{ label: "Eligible history", value: data.companies.reduce((total, row) => total + row.research_bars, 0), detail: "Stored company bars before 2021" }, { label: "Strategy library", value: STRATEGIES.length, detail: "Rules with explicit execution costs" }, { label: "Research boundary", value: <Term name="2020 boundary">31 Dec 2020</Term>, detail: "Latest permitted historical study date" }]} />
-    <div className="context-banner"><span className="context-icon"><ShieldCheck size={20} /></span><div><strong>Retrospective research, with its assumptions visible</strong><p>Observed sessions only. Availability is never backdated. Warmups use the selected window; no synthetic replacement history is generated.</p></div><span className="pill neutral">2015–2020 DEFAULT</span></div>
-    {(data.workspace === "demo" || data.universe === "demo") && !data.companies.some(item => item.research_bars > 0) ? <div className="alert warning">Demo / local universe: the bundled 2026 demo is excluded by the 2020 cutoff. Choose Your workspace → Provider companies to download and study provider history.</div> : null}
-    {company.startsWith("SYNTHETIC:") && <div className="alert warning">SYNTHETIC QA HISTORY · Interface verification only; not performance evidence.</div>}
-    <section className="panel"><div className="panel-heading"><div><span className="eyebrow">01 / STUDY WINDOW</span><h2>Choose your historical evidence</h2><p>Loading local history never contacts a market provider or model.</p></div><span className="pill neutral">DAILY OHLCV</span></div><div className="panel-body">
-      <form onSubmit={event => { event.preventDefault(); void load("history"); }}>
-        <div className="form-grid"><label className="field">Instrument<select required value={company} onChange={event => { invalidate(true); setCompany(event.target.value); }}><option value="" disabled>Select an instrument</option>{data.companies.map(item => <option key={item.instrument_id} value={item.instrument_id}>{item.name} · {item.research_bars} pre-2021 bars</option>)}</select></label><label className="field">Study start<input type="date" required min="2000-01-01" max={END} value={start} onChange={event => { invalidate(true); setStart(event.target.value); }} /></label><label className="field">Study end<input type="date" required min={start || "2000-01-01"} max={END} value={end} onChange={event => { invalidate(true); setEnd(event.target.value); }} /></label></div>
-        <div className="form-actions"><button className="button primary" disabled={Boolean(busy) || !validDates}>{busy === "history" ? <LoaderCircle size={15} className="spin" /> : <FlaskConical size={15} />}Load local history</button><p>{selectedCompany?.research_bars || 0} stored pre-2021 bars · No calendar filling or adjustment inference</p></div>
+  const strategyName = STRATEGIES.find(([key]) => key === strategy)?.[1] ?? strategy;
+  const warnings = <>
+    {(data.workspace === "demo" || data.universe === "demo") && !data.companies.some(item => item.research_bars > 0) && <div className="alert warning">This demo has no prices before 2021, so the Lab has nothing to study. Switch to “My data – real companies” to download history.</div>}
+    {company.startsWith("SYNTHETIC:") && <div className="alert warning">Synthetic test series: for trying the tool only, not evidence of performance.</div>}
+  </>;
+  const errorLine = error && <div className="alert error" role="alert">{error}</div>;
+  const monteCarlo = result && <MonteCarlo key={resultScope} api={api} backtest={result} study={request} params={params} historyManifest={history?.manifest} />;
+
+  const intro = !result && <section className="card flow"><div className="card-head"><h2><Term name="Monte Carlo (block bootstrap)">Monte Carlo</Term></h2></div>
+      <p>Monte Carlo reshuffles a backtest’s own past daily returns to show the spread of luck, so it needs a backtest first.</p>
+      <p className="muted small">Current settings: {selectedCompany?.name ?? "no company"} · {start} → {end} · {strategyName} · {rupees(capital)} · costs {fee} + {slippage} bps</p>
+      <div className="actions"><button type="button" className="button primary" disabled={Boolean(busy) || !validDates} onClick={() => void load("backtest")}>{busy === "backtest" && <LoaderCircle className="spin" size={15} aria-hidden="true" />}Run backtest with these settings</button><Link className="button secondary" href={href("lab", { tab: "backtest" })}>Change settings</Link></div>
+      {errorLine}
+    </section>;
+
+  const backtestView = <>
+    <section className="card flow">
+      <div className="card-head"><h2>Backtest a rule</h2><span className="muted small">Long or cash · signal at close → trade at next open · costs on every fill</span></div>
+      <form className="stack" onSubmit={event => { event.preventDefault(); void load("backtest"); }}>
+        <div className="form-grid">
+          <label className="field">Company<select required value={company} onChange={event => { invalidate(true); setCompany(event.target.value); }}><option value="" disabled>Select a company</option>{data.companies.map(item => <option key={item.instrument_id} value={item.instrument_id}>{item.name} · {item.research_bars} days before 2021</option>)}</select></label>
+          <label className="field">Start<input type="date" required min="2000-01-01" max={END} value={start} onChange={event => { invalidate(true); setStart(event.target.value); }} /></label>
+          <label className="field"><span>End (latest <Term name="2020 boundary">31 Dec 2020</Term>)</span><input type="date" required min={start || "2000-01-01"} max={END} value={end} onChange={event => { invalidate(true); setEnd(event.target.value); }} /></label>
+          <label className="field">Strategy<select value={strategy} onChange={event => { invalidate(); setStrategy(event.target.value); }}>{STRATEGIES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select><small>Rule: {RULES[strategy]}</small></label>
+          <NumberField term="Initial capital (INR)" label="Initial capital (INR)" value={capital} min={1000} max={1e12} step={1000} onChange={value => { invalidate(); setCapital(value); }} />
+          <NumberField term="Fee per fill (bps)" label="Fee per fill (bps)" value={fee} min={0} max={9999} step={0.1} onChange={value => { invalidate(); setFee(value); }} />
+          <NumberField term="Slippage per fill (bps)" label="Slippage per fill (bps)" value={slippage} min={0} max={9999} step={0.1} onChange={value => { invalidate(); setSlippage(value); }} />
+        </div>
+        <details className="fold"><summary>Advanced parameters</summary><div className="form-grid">
+          {["sma_cross", "ema_cross"].includes(strategy) && <><NumberField term="Fast / Slow period" label="Fast period (sessions)" value={fast} min={1} max={9999} onChange={value => { invalidate(); setFast(value); }} /><NumberField term="Fast / Slow period" label="Slow period (sessions)" value={slow} min={2} max={10000} onChange={value => { invalidate(); setSlow(value); }} /></>}
+          {strategy === "rsi_reversion" && <><NumberField label="RSI buy at or below" value={buy} min={0} max={100} onChange={value => { invalidate(); setBuy(value); }} /><NumberField label="RSI sell at or above" value={sell} min={0} max={100} onChange={value => { invalidate(); setSell(value); }} /></>}
+          <label className="check-label"><input type="checkbox" checked={walkForward} onChange={event => { invalidate(); setWalkForward(event.target.checked); }} /><Term name="Walk-forward split">Also test a walk-forward split</Term></label>
+          {walkForward && <label className="field">Out-of-sample starts<input type="date" required min={start} max={end} value={split} onChange={event => { invalidate(); setSplit(event.target.value); }} /><small>Chosen in advance. The same fixed rule runs separately before and after this date; nothing is tuned.</small></label>}
+        </div></details>
+        <div className="actions">
+          <button type="submit" className="button primary" disabled={Boolean(busy) || !validDates}>{busy === "backtest" ? <LoaderCircle className="spin" size={15} aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}Run backtest</button>
+          <button type="button" className="button secondary" disabled={Boolean(busy) || !validDates} onClick={() => void load("history")}>{busy === "history" && <LoaderCircle size={15} className="spin" aria-hidden="true" />}Load local history</button>
+          <p className="muted small">{selectedCompany?.research_bars || 0} saved days before 2021 · reads saved prices only · 1 bp = 0.01%</p>
+        </div>
       </form>
-      <details className="json-view" open={!selectedCompany?.research_bars}><summary>Download historical candles from Upstox · explicit action</summary><p className="muted">Uses the instrument and dates above. Candles only; configured benchmarks are included. Provider credentials stay on the Python server.</p>{!providerAllowed ? <p className="alert warning">Historical downloads require Your workspace and Provider companies. This form remains available when no local bars exist.</p> : provider && !provider.configured ? <p className="alert warning">Missing Upstox credentials. Configure the provider token in Connections, then refresh the workspace. No token is shown or exported.</p> : null}<div className="form-actions"><button type="button" className="button secondary" disabled={Boolean(busy) || !validDates || !providerAllowed} onClick={() => void downloadHistory()}>{busy === "download" ? <LoaderCircle size={15} className="spin" /> : <ArrowDownToLine size={15} />}Download historical candles</button><p>Dates capped at 2020-12-31. Downloads retain their actual receipt time.</p></div>{receipt && <div role="status"><p>{String(receipt.observations_added ?? 0)} observations added · {String(receipt.network_requests ?? 0)} provider requests</p><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify({ errors: receipt.errors, coverage: receipt.coverage }, null, 2)}</pre><button className="button secondary" onClick={() => downloadJson(receipt, "history-receipt.json")}>Download receipt JSON</button></div>}</details>
-      {error && <div className="alert error" role="alert">{error}</div>}
-    </div></section>
-    {!history && <section className="panel">{selectedCompany?.research_bars ? <Empty title="Load the price history to start" description="Press “Load local history” above. It reads saved daily prices only; no provider or model is contacted." /> : <Empty title="No historical prices before 2021 for this instrument." description={<>In the demo, pick “Synthetic lab series”. For real data, add an Upstox token in Connections and download history.</>} action={<div className="state-actions">{demoSeries && <button type="button" className="button secondary" onClick={() => { invalidate(true); setCompany(demoSeries.instrument_id); }}>Pick demo series</button>}<Link className="button secondary" href={href("connections")}>Open Connections</Link></div>} />}</section>}
-    {history && <section className="panel"><div className="panel-heading"><div><span className="eyebrow">02 / PRICE STRUCTURE</span><h2>{selectedCompany?.name || company}</h2><p>{history.bars.length} observed sessions · {history.actual_start} to {history.actual_end}</p></div><button className="button secondary" onClick={() => downloadJson(history, "study-history.json")}><ArrowDownToLine size={14} />History JSON</button></div><div className="panel-body"><fieldset style={{ border: 0, padding: 0, margin: 0 }}><legend className="sr-only">Chart indicators</legend><div className="indicator-select">{INDICATORS.map(([key, label]) => <label className="check-label" key={key}><input type="checkbox" checked={selected.includes(key)} onChange={() => toggleIndicator(key)} />{label}</label>)}</div></fieldset><PriceChart bars={history.bars} indicators={history.indicators} selected={selected} /><p className="muted">Missing indicator warmups are omitted. RSI, MACD, ATR, ADX and volume have independent panes. Price overlays use the local OHLC scale.</p></div></section>}
-    <HostedChart />
-    <section className="panel"><div className="panel-heading"><div><span className="eyebrow">03 / RULE & EXECUTION</span><h2>Backtest a strategy</h2><p>Long / cash · Close signal → next observed session open · Costs on every fill</p></div></div><div className="panel-body"><form onSubmit={event => { event.preventDefault(); void load("backtest"); }}><div className="form-grid"><label className="field">Strategy<select value={strategy} onChange={event => { invalidate(); setStrategy(event.target.value); }}>{STRATEGIES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select><small className="rule-line">Rule: {RULES[strategy]}</small></label><NumberField term="Initial capital (INR)" label="Initial capital (INR)" value={capital} min={1000} max={1e12} step={1000} onChange={value => { invalidate(); setCapital(value); }} /><NumberField term="Fee per fill (bps)" label="Fee per fill (bps)" value={fee} min={0} max={9999} step={0.1} onChange={value => { invalidate(); setFee(value); }} /><NumberField term="Slippage per fill (bps)" label="Slippage per fill (bps)" value={slippage} min={0} max={9999} step={0.1} onChange={value => { invalidate(); setSlippage(value); }} />{["sma_cross", "ema_cross"].includes(strategy) && <><NumberField term="Fast / Slow period" label="Fast period (sessions)" value={fast} min={1} max={9999} onChange={value => { invalidate(); setFast(value); }} /><NumberField term="Fast / Slow period" label="Slow period (sessions)" value={slow} min={2} max={10000} onChange={value => { invalidate(); setSlow(value); }} /></>}{strategy === "rsi_reversion" && <><NumberField label="RSI buy at or below" value={buy} min={0} max={100} onChange={value => { invalidate(); setBuy(value); }} /><NumberField label="RSI sell at or above" value={sell} min={0} max={100} onChange={value => { invalidate(); setSell(value); }} /></>}</div><div className="walk-forward-option"><label className="check-label"><input type="checkbox" checked={walkForward} onChange={event => { invalidate(); setWalkForward(event.target.checked); }} /><Term name="Walk-forward split">Also test a walk-forward split</Term></label>{walkForward && <label className="field">Out-of-sample starts<input type="date" required min={start} max={end} value={split} onChange={event => { invalidate(); setSplit(event.target.value); }} /><small>Chosen in advance. The same fixed rule runs separately before and after this date; nothing is tuned.</small></label>}</div><div className="form-actions"><button className="button primary" disabled={Boolean(busy) || !validDates}>{busy === "backtest" ? <LoaderCircle className="spin" size={15} /> : <Play size={15} />}Run backtest</button><p>1 basis point = 0.01%. Final positions are marked to market without a forced exit.</p></div></form></div></section>
-    {result && <><ResultVerdict result={result} />
-      <div className={`metric-grid ${result.metrics.probabilistic_sharpe != null ? "five" : ""}`}><Metric term="Strategy return" label="Strategy return" value={<Count value={result.metrics.total_return} format={signed} />} tone={tone(result.metrics.total_return)} detail="After fees and slippage" /><Metric term="Buy & hold return" label="Buy & hold return" value={<Count value={result.metrics.benchmark_return} format={signed} />} tone={tone(result.metrics.benchmark_return)} detail="Same execution cost convention" /><Metric term="Maximum drawdown" label="Maximum drawdown" value={<Count value={result.metrics.max_drawdown} format={signed} />} detail="From running equity peak" /><Metric term="Sharpe ratio" label="Sharpe ratio" value={format(result.metrics.sharpe)} detail={lowSample(result) ? <span className="low-sample-flag">Low sample: {format(result.metrics.closed_trades, 0)} closed trades</span> : "Observed equity returns · zero risk-free rate"} />{result.metrics.probabilistic_sharpe != null && <Metric term="Probabilistic Sharpe (PSR)" label="Probabilistic Sharpe (PSR)" value={<Count value={result.metrics.probabilistic_sharpe} format={value => percent(value)} />} detail="Chance the true Sharpe is above zero. Single configuration; not deflated for the number of configurations tried." />}</div>
+      {!selectedCompany?.research_bars && <div className="state-card"><strong>No prices before 2021 for this company.</strong><p>In the demo, pick the synthetic lab series. For real data, add an Upstox token in Settings › Connections and download history.</p><div className="actions">{demoSeries && <button type="button" className="button secondary" onClick={() => { invalidate(true); setCompany(demoSeries.instrument_id); }}>Pick demo series</button>}<Link className="button secondary" href={href("settings", { tab: "connections" })}>Open Connections</Link></div></div>}
+      <details className="fold" open={!selectedCompany?.research_bars && providerAllowed}><summary>Download daily prices from Upstox (explicit action)</summary>
+        <p className="muted small">Uses the company and dates above. Candles only; benchmarks are included. Provider keys stay on the Python server.</p>
+        {!providerAllowed ? <p className="alert warning">Downloads need the “My data – real companies” workspace.</p> : provider && !provider.configured ? <p className="alert warning">Upstox token missing. Set it up in Settings › Connections, then refresh. No token is shown or exported.</p> : null}
+        <div className="actions"><button type="button" className="button secondary" disabled={Boolean(busy) || !validDates || !providerAllowed} onClick={() => void downloadHistory()}>{busy === "download" ? <LoaderCircle size={15} className="spin" aria-hidden="true" /> : <ArrowDownToLine size={15} aria-hidden="true" />}Download historical candles</button><p className="muted small">Dates capped at 2020-12-31. Downloads keep their actual receipt time.</p></div>
+        {receipt && <div role="status"><p>{String(receipt.observations_added ?? 0)} price rows added · {String(receipt.network_requests ?? 0)} provider requests</p><pre className="json">{JSON.stringify({ errors: receipt.errors, coverage: receipt.coverage }, null, 2)}</pre><button type="button" className="button secondary" onClick={() => downloadJson(receipt, "history-receipt.json")}>Download receipt JSON</button></div>}
+      </details>
+      {errorLine}
+    </section>
+
+    {result && <>
+      <ResultVerdict result={result} />
+      <div className="stat-grid">
+        <StatTile label={<Term name="Strategy return" />} value={signed(result.metrics.total_return)} tone={tone(result.metrics.total_return)} detail="After fees and slippage" />
+        <StatTile label={<Term name="Maximum drawdown" />} value={signed(result.metrics.max_drawdown)} detail="Worst fall from a peak" />
+        <StatTile label={<Term name="Sharpe ratio" />} value={format(result.metrics.sharpe)} detail={lowSample(result) ? <span className="low-sample-flag">Low sample</span> : "Zero risk-free rate"} />
+        <StatTile label={<Term name="Win rate / Closed trades">Closed trades</Term>} value={format(result.metrics.closed_trades, 0)} detail={`Win rate ${percent(result.metrics.win_rate)}`} />
+      </div>
+      <dl className="facts"><div><dt><Term name="Buy & hold return" /></dt><dd>{signed(result.metrics.benchmark_return)}</dd></div>{result.metrics.probabilistic_sharpe != null && <div><dt><Term name="Probabilistic Sharpe (PSR)" /></dt><dd>{percent(result.metrics.probabilistic_sharpe)} <span className="muted small">(one configuration; not adjusted for settings tried)</span></dd></div>}<div><dt><Term name="CAGR" /></dt><dd>{percent(result.metrics.cagr)}</dd></div></dl>
       {lowSample(result) && <div className="alert warning low-sample" role="note"><strong>Low sample size — fewer than {LOW_SAMPLE} closed trades.</strong> This backtest closed only {format(result.metrics.closed_trades, 0)} {result.metrics.closed_trades === 1 ? "trade" : "trades"}, so the Sharpe ratio, PSR and win rate can swing a lot on a few trades. Treat them as descriptive, not as evidence of an edge.</div>}
-      {result.walk_forward && <WalkForward split={result.walk_forward} />}
-      <section className="panel"><div className="panel-heading"><div><h2>Equity & execution report</h2><p><Term name="Win rate / Closed trades">{format(result.metrics.closed_trades, 0)} closed trades</Term> · Win rate {percent(result.metrics.win_rate)} · <Term name="CAGR">CAGR</Term> {percent(result.metrics.cagr)}</p></div><button className="button secondary" onClick={() => downloadJson(enrichReport(result, request, params, history?.manifest), "backtest.json")}><ArrowDownToLine size={14} />Backtest + manifest JSON</button></div><div className="panel-body"><EquityChart points={result.equity} /><p className="result-explanation">{result.open_position ? <><Term name="Open position">Position remains open</Term> at study end. Equity includes its last-close market value; no hypothetical exit fee is charged.</> : "No open position at study end."}</p><details className="json-view"><summary>Trade fills ({result.trades.length})</summary><RecordTable rows={result.trades} empty="No fills. The rule never triggered in this window, so the strategy stayed in cash." /></details><details className="json-view"><summary>Execution and research assumptions</summary><ul className="summary-list">{result.assumptions.map(item => <li key={item}>{item}</li>)}</ul></details></div></section><MonteCarlo key={resultScope} api={api} backtest={result} study={request} params={params} historyManifest={history?.manifest} /></>}
+      <section className="card flow"><div className="card-head"><h2>Equity & execution report</h2><button type="button" className="button secondary" onClick={() => downloadJson(enrichReport(result, request, params, history?.manifest), "backtest.json")}><ArrowDownToLine size={14} aria-hidden="true" />Download backtest JSON</button></div>
+        <EquityChart points={result.equity} />
+        <p className="muted">{result.open_position ? <><Term name="Open position">The position is still open</Term> at the end. Equity uses its last close; no exit fee is charged.</> : "No open position at the end."}</p>
+        <details className="fold"><summary>Trades ({result.trades.length})</summary><RecordTable rows={result.trades} empty="No trades. The rule never triggered in this window, so the strategy stayed in cash." /></details>
+        {result.walk_forward && <WalkForward split={result.walk_forward} />}
+        <details className="fold"><summary>Execution and research assumptions</summary><ul className="summary-list">{result.assumptions.map(item => <li key={item}>{item}</li>)}</ul></details>
+        <p className="muted small">Next: <Link href={href("lab", { tab: "montecarlo" })}>see how much luck could change this (Monte Carlo)</Link>.</p>
+      </section>
+    </>}
+
+    {history ? <section className="card flow"><div className="card-head"><h2>{selectedCompany?.name || company} · prices</h2><button type="button" className="button secondary" onClick={() => downloadJson(history, "study-history.json")}><ArrowDownToLine size={14} aria-hidden="true" />History JSON</button></div>
+      <p className="muted small">{history.bars.length} trading days · {history.actual_start} to {history.actual_end}</p>
+      <div className="chips" role="group" aria-label="Chart indicators">{INDICATORS.map(([key, label]) => <button type="button" className="chip" key={key} aria-pressed={selected.includes(key)} onClick={() => toggleIndicator(key)}>{label}</button>)}</div>
+      <PriceChart bars={history.bars} indicators={history.indicators} selected={selected} />
+      <p className="muted small">Indicators without enough history are left out. RSI, MACD, ATR, ADX and volume get their own panes.</p>
+    </section> : null}
+  </>;
+  // Same tree position on both tabs, so the Monte Carlo state survives switching tabs.
+  return <>
+    {warnings}
+    {tab === "montecarlo" ? intro : backtestView}
+    {monteCarlo && <div hidden={tab !== "montecarlo"}>{monteCarlo}</div>}
   </>;
 }
-
-const tone = (value: number | null | undefined) => value == null || value === 0 ? undefined : value > 0 ? "positive" as const : "negative" as const;
-const lowSample = (result: StudyBacktest) => result.metrics.closed_trades != null && result.metrics.closed_trades < LOW_SAMPLE;
 
 /** One plain sentence: what the rule did against simply holding. */
 function ResultVerdict({ result }: { result: StudyBacktest }) {
@@ -136,12 +195,13 @@ function ResultVerdict({ result }: { result: StudyBacktest }) {
 
 /** In-sample vs out-of-sample metrics for one fixed configuration. */
 function WalkForward({ split }: { split: NonNullable<StudyBacktest["walk_forward"]> }) {
-  const rows: [string, string, (value: number | null | undefined) => string][] = [["Strategy return", "total_return", value => value == null ? "—" : signed(value)], ["Buy & hold return", "benchmark_return", value => value == null ? "—" : signed(value)], ["Maximum drawdown", "max_drawdown", value => value == null ? "—" : signed(value)], ["Sharpe ratio", "sharpe", value => format(value)], ["Probabilistic Sharpe (PSR)", "probabilistic_sharpe", value => percent(value)], ["Win rate / Closed trades", "closed_trades", value => format(value, 0)]];
+  const rows: [string, string, (value: number | null | undefined) => string][] = [["Strategy return", "total_return", signed], ["Buy & hold return", "benchmark_return", signed], ["Maximum drawdown", "max_drawdown", signed], ["Sharpe ratio", "sharpe", value => format(value)], ["Probabilistic Sharpe (PSR)", "probabilistic_sharpe", value => percent(value)], ["Win rate / Closed trades", "closed_trades", value => format(value, 0)]];
   const segments: [string, Segment][] = [["In-sample", split.in_sample], ["Out-of-sample", split.out_of_sample]];
-  return <section className="panel walk-forward"><div className="panel-heading"><div><h2><Term name="Walk-forward split">Walk-forward check</Term></h2><p>Split on {split.split_date}. The configuration was fixed in advance, not tuned on either segment.</p></div></div>
-    <div className="table-scroll"><table className="fit-table"><thead><tr><th>Metric</th>{segments.map(([label, segment]) => <th key={label}>{label}<small className="cell-note">{segment.actual_start} → {segment.actual_end} · {segment.bars} sessions</small></th>)}</tr></thead>
+  return <details className="fold walk-forward" open><summary><Term name="Walk-forward split">Walk-forward check</Term> · split on {split.split_date}</summary>
+    <p className="muted small">The settings were fixed in advance, not tuned on either part.</p>
+    <div className="table-scroll"><table className="fit-table"><thead><tr><th scope="col">Metric</th>{segments.map(([label, segment]) => <th scope="col" key={label}>{label}<small className="cell-note">{segment.actual_start} → {segment.actual_end} · {segment.bars} sessions</small></th>)}</tr></thead>
       <tbody>{rows.map(([label, key, show]) => <tr key={key}><td><Term name={label}>{key === "closed_trades" ? "Closed trades" : label}</Term></td>{segments.map(([name, segment]) => <td key={name} className="numeric">{show(segment.metrics[key])}{key === "closed_trades" && (segment.metrics[key] ?? 0) < LOW_SAMPLE ? <small className="cell-note low-sample-flag">Low sample</small> : null}</td>)}</tr>)}</tbody></table></div>
-    <div className="panel-body"><ul className="summary-list footnote">{split.assumptions.map(item => <li key={item}>{item}</li>)}</ul></div></section>;
+    <ul className="summary-list">{split.assumptions.map(item => <li key={item}>{item}</li>)}</ul></details>;
 }
 
 function NumberField({ label, term, value, min, max, step = 1, onChange }: { label: string; term?: string; value: number; min: number; max: number; step?: number; onChange: (value: number) => void }) {
@@ -156,15 +216,6 @@ function RecordTable({ rows, empty }: { rows: Record<string, unknown>[]; empty: 
   if (!rows.length) return <p className="muted">{empty}</p>;
   const columns = Object.keys(rows[0]);
   return <div className="table-scroll"><table><thead><tr>{columns.map(key => <th scope="col" key={key}>{key.replaceAll("_", " ")}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(key => <td key={key}>{typeof row[key] === "number" ? format(row[key] as number, 4) : row[key] == null ? "—" : String(row[key])}</td>)}</tr>)}</tbody></table></div>;
-}
-
-function HostedChart() {
-  const theme = useTheme();
-  const [enabled, setEnabled] = useState(false), [symbol, setSymbol] = useState("NSE:RELIANCE");
-  const valid = /^[A-Za-z0-9_:-]{1,80}$/.test(symbol);
-  const config = JSON.stringify({ autosize: true, symbol, interval: "D", timezone: "Asia/Kolkata", theme, style: "1", locale: "en", allow_symbol_change: true });
-  const html = `<html><head><style>html,body{height:100%;margin:0}.tradingview-widget-container{height:480px!important;min-height:480px}</style></head><body style="margin:0;background:${theme === "light" ? "#ffffff" : "#171815"};color:${theme === "light" ? "#232b1c" : "#eeeee8"}"><div class="tradingview-widget-container" style="height:480px;width:100%"><div class="tradingview-widget-container__widget" style="height:450px;width:100%"></div><a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" style="color:${theme === "light" ? "#536047" : "#b3b9a7"}">Chart by TradingView</a><script src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>${valid ? config : "{}"}</script></div></body></html>`;
-  return <section className="panel"><div className="panel-body" style={{ paddingTop: 18 }}><details><summary>Independent TradingView hosted widget · optional external service</summary><p className="result-explanation">Independent external data may extend beyond 2020. It never feeds local charts, backtests or Monte Carlo. Enabling this widget permits requests to TradingView.</p><label className="check-label"><input type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} />Load external TradingView hosted widget</label>{enabled && <><label className="field">TradingView exchange:ticker<input value={symbol} onChange={event => setSymbol(event.target.value)} maxLength={80} /></label>{valid ? <iframe title="Independent TradingView hosted chart" className="external-chart" sandbox="allow-scripts allow-same-origin allow-popups" srcDoc={html} /> : <p className="error-summary">Use exchange:ticker with letters, digits, colon, hyphen or underscore.</p>}<p className="muted">If the external service is blocked or unavailable, local research remains available.</p></>}</details></div></section>;
 }
 
 function MonteCarlo({ api, backtest, study, params, historyManifest }: { api: PanelProps["api"]; backtest: StudyBacktest; study: { company_id: string; start_date: string; end_date: string }; params: object; historyManifest?: Manifest }) {
@@ -183,7 +234,26 @@ function MonteCarlo({ api, backtest, study, params, historyManifest }: { api: Pa
     } catch (reason) { if (mounted.current && ticket === sequence.current) setError(message(reason)); }
     finally { if (mounted.current && ticket === sequence.current) setBusy(false); }
   }
-  return <section className="panel"><div className="panel-heading"><div><span className="eyebrow">04 / RETURN SCENARIOS</span><h2><Term name="Monte Carlo (block bootstrap)">Monte Carlo lab</Term></h2><p>Reshuffles chunks of this strategy’s own past daily returns to show the spread of luck. Not a forecast.</p></div></div><div className="panel-body"><form onSubmit={event => { event.preventDefault(); void simulate(); }}><div className="form-grid"><NumberField term="Simulated paths / Horizon" label="Simulated paths" value={paths} min={10} max={1000} onChange={value => { invalidate(); setPaths(value); }} /><NumberField term="Simulated paths / Horizon" label="Horizon (observed sessions)" value={horizon} min={1} max={1000} onChange={value => { invalidate(); setHorizon(value); }} /><NumberField term="Random seed" label="Random seed" value={seed} min={0} max={4294967295} onChange={value => { invalidate(); setSeed(value); }} /><NumberField term="Block size" label="Block size (returns)" value={block} min={1} max={Math.min(252, backtest.daily_returns.length)} onChange={value => { invalidate(); setBlock(value); }} /></div><div className="form-actions"><button className="button primary" disabled={busy || backtest.daily_returns.length < 5}>{busy ? <LoaderCircle className="spin" size={15} /> : <FlaskConical size={15} />}Simulate return paths</button><p>{backtest.daily_returns.length} historical equity returns · Starts paused · No provider or model calls</p></div></form>{backtest.daily_returns.length < 5 && <p className="alert warning">At least five observed equity returns are required. Extend the study window above.</p>}{error && <p className="alert error" role="alert">{error}</p>}{result && <><div className="stat-list four"><div className="stat-item"><span><Term name="Resampled loss frequency" /></span><strong><Count value={result.metrics.probability_loss} format={value => percent(value)} /></strong></div><div className="stat-item"><span><Term name="Median terminal capital" /></span><strong><Count value={result.metrics.median_terminal} format={value => rupees(value)} /></strong></div><div className="stat-item"><span><Term name="p05 / p95 terminal capital">p05 terminal capital</Term></span><strong><Count value={result.metrics.p05_terminal} format={value => rupees(value)} /></strong></div><div className="stat-item"><span><Term name="p05 / p95 terminal capital">p95 terminal capital</Term></span><strong><Count value={result.metrics.p95_terminal} format={value => rupees(value)} /></strong></div></div><MonteCarloChart result={result} start={initial} /><p className="result-explanation">{paths} resampled paths over {horizon} observed sessions. Shaded band: middle 90% (p05–p95) of all paths at each step. Solid line: median path. Thin lines: up to 50 sample paths. Dashed line: starting capital. These are resampled scenarios, not forecasts.</p><button className="button secondary" onClick={() => { const report = enrichReport(result, study, simulationParams, backtest.manifest || historyManifest); downloadJson({ ...report, manifest: { ...report.manifest, parent_backtest: enrichReport(backtest, study, params, historyManifest).manifest, params: simulationParams } }, "monte-carlo.json"); }}><ArrowDownToLine size={14} />Monte Carlo + manifest JSON</button><details className="json-view"><summary>Accessible percentile bands and assumptions</summary><RecordTable rows={result.bands} empty="No bands returned" /><ul className="summary-list">{result.assumptions.map(item => <li key={item}>{item}</li>)}</ul></details></>}</div></section>;
+  return <section className="card flow"><div className="card-head"><h2><Term name="Monte Carlo (block bootstrap)">Monte Carlo</Term></h2><span className="muted small">Reshuffles chunks of this backtest’s own daily returns · not a forecast</span></div>
+    <form className="stack" onSubmit={event => { event.preventDefault(); void simulate(); }}>
+      <div className="form-grid"><NumberField term="Random seed" label="Random seed" value={seed} min={0} max={4294967295} onChange={value => { invalidate(); setSeed(value); }} /><NumberField term="Simulated paths / Horizon" label="Simulated paths" value={paths} min={10} max={1000} onChange={value => { invalidate(); setPaths(value); }} /><NumberField term="Simulated paths / Horizon" label="Horizon (trading days)" value={horizon} min={1} max={1000} onChange={value => { invalidate(); setHorizon(value); }} /><NumberField term="Block size" label="Block size (returns)" value={block} min={1} max={Math.min(252, backtest.daily_returns.length)} onChange={value => { invalidate(); setBlock(value); }} /></div>
+      <div className="actions"><button type="submit" className="button primary" disabled={busy || backtest.daily_returns.length < 5}>{busy ? <LoaderCircle className="spin" size={15} aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}Simulate return paths</button><p className="muted small">{backtest.daily_returns.length} daily returns from the backtest · starts paused · no provider or model calls</p></div>
+    </form>
+    {backtest.daily_returns.length < 5 && <p className="alert warning">At least five daily returns are needed. Use a longer backtest window.</p>}
+    {error && <p className="alert error" role="alert">{error}</p>}
+    {result && <>
+      <div className="stat-grid">
+        <StatTile label={<Term name="Resampled loss frequency" />} value={percent(result.metrics.probability_loss)} />
+        <StatTile label={<Term name="Median terminal capital" />} value={rupees(result.metrics.median_terminal)} />
+        <StatTile label={<Term name="p05 / p95 terminal capital">p05 terminal capital</Term>} value={rupees(result.metrics.p05_terminal)} />
+        <StatTile label={<Term name="p05 / p95 terminal capital">p95 terminal capital</Term>} value={rupees(result.metrics.p95_terminal)} />
+      </div>
+      <MonteCarloChart result={result} start={initial} />
+      <p className="muted">{paths} reshuffled paths over {horizon} trading days. In {percent(result.metrics.probability_loss)} of them the account ended below the starting {rupees(initial)}; the middle path ended at {rupees(result.metrics.median_terminal)}. Shaded band: middle 90% of paths. These are reshuffled scenarios, not forecasts.</p>
+      <div className="actions"><button type="button" className="button secondary" onClick={() => { const report = enrichReport(result, study, simulationParams, backtest.manifest || historyManifest); downloadJson({ ...report, manifest: { ...report.manifest, parent_backtest: enrichReport(backtest, study, params, historyManifest).manifest, params: simulationParams } }, "monte-carlo.json"); }}><ArrowDownToLine size={14} aria-hidden="true" />Download Monte Carlo JSON</button></div>
+      <details className="fold"><summary>Percentile bands as a table, and assumptions</summary><RecordTable rows={result.bands} empty="No bands returned" /><ul className="summary-list">{result.assumptions.map(item => <li key={item}>{item}</li>)}</ul></details>
+    </>}
+  </section>;
 }
 
 function MonteCarloChart({ result, start }: { result: Simulation; start: number }) {

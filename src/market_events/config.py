@@ -11,6 +11,9 @@ from typing import Literal
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
+SARVAM_BASE_URL = "https://api.sarvam.ai/v1"
+SARVAM_MODELS = {"slm": "sarvam-105b-conversations", "llm": "sarvam-105b"}
+
 
 class ModelSettings(BaseModel):
     """Connection and output limits for one model role (SLM or LLM)."""
@@ -87,12 +90,24 @@ def load_settings(root: Path = Path(".")) -> Settings:
     )
     if not raw["database_path"].is_absolute():
         raw["database_path"] = root / raw["database_path"]
-    for role in ("slm", "llm"):
+    sarvam_key = os.getenv("SARVAM_API_KEY", "").strip()
+    for role, sarvam_model in SARVAM_MODELS.items():
         model = raw.get(role, {})
         for field in ("provider", "base_url", "model", "api_key"):
             key = f"{role.upper()}_{field.upper()}"
             if key in os.environ:
                 model[field] = os.environ[key]
+        if sarvam_key:
+            if "provider" not in model and "base_url" not in model:
+                model.update(provider="openai_compatible", base_url=SARVAM_BASE_URL)
+            base_url = model.get("base_url")
+            if (
+                model.get("provider") == "openai_compatible"
+                and isinstance(base_url, str)
+                and base_url.rstrip("/") == SARVAM_BASE_URL
+            ):
+                model.setdefault("model", sarvam_model)
+                model.setdefault("api_key", sarvam_key)
         raw[role] = model
     return Settings.model_validate(raw)
 

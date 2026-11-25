@@ -1,42 +1,53 @@
 /* Design tokens: CSS custom properties only.
-   :root holds the default (dark) palette, fonts and shared sizes; :root[data-theme="light"] swaps the
-   --mode-* colours for light mode. Components read colours through var(--mode-*) or the short aliases
+   :root holds the default (light) palette, type, radii and spacing; :root[data-theme="dark"] swaps the
+   --mode-* colours. Components read colours through var(--mode-*) or the short aliases
    (--text, --muted, --line, --chart-*). theme.test.mjs checks contrast of these values.
-   Import order (layout.tsx): tokens → base → layout → components → overview → presentation.
-   `:root .x` selectors are deliberate: the extra specificity lets the light/dark colour rules win over
-   structural rules. A few rules sit in a later file than their topic because they must come after
-   a rule there; moving them would change the cascade. */
+   Import order (layout.tsx): tokens → base → layout → components → overview → presentation. */
 
 :root {
+  color-scheme: light;
+  --font: Inter, "Segoe UI", system-ui, sans-serif;
   --mono: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  --font: "Segoe UI", Arial, sans-serif;
-  --theme-sidebar: 248px;
-  --cyan: #b6bd9c;
-  --mode-bg: #090a09;
-  --mode-shell: #0f100e;
-  --mode-panel: #171815;
-  --mode-raised: #23261e;
-  --mode-hover: #2a3022;
-  --mode-border: #42483a;
-  --mode-input-border: #747f65;
-  --mode-text: #eeeee8;
-  --mode-muted: #b3b9a7;
-  --mode-soft: #a2ab93;
-  --mode-primary: #c9f56b;
-  --mode-primary-ink: #1b240e;
-  --mode-link: #c6df9f;
-  --mode-success: #c7dfac;
-  --mode-success-bg: #222d18;
-  --mode-warning: #ead39a;
-  --mode-warning-bg: #30291c;
-  --mode-danger: #efb7ad;
-  --mode-danger-bg: #32231f;
-  --mode-chart-gold: #d5b864;
-  --mode-chart-green: #b9de7e;
-  --mode-chart-red: #e89579;
-  --mode-chart-grid: #383d31;
-  --mode-shadow: 0 12px 38px #00000026;
-  --mode-guide: linear-gradient(120deg, #27311b88, #151913 75%);
+  --radius-card: 14px;
+  --radius-control: 10px;
+  --radius-pill: 999px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px;
+  --content-width: 1160px;
+  --touch: 44px;
+
+  --mode-bg: #ffffff;
+  --mode-shell: #ffffff;
+  --mode-panel: #ffffff;
+  --mode-raised: #f7f8fa;
+  --mode-hover: #f0f2f6;
+  --mode-border: #e6e8ec;
+  --mode-input-border: #d5d9e0;
+  --mode-text: #111827;
+  --mode-muted: #5b6472;
+  --mode-soft: #5b6472;
+  --mode-primary: #2f55d4;
+  --mode-primary-ink: #ffffff;
+  --mode-accent-bg: #eef2fd;
+  --mode-accent-text: #1f3fa8;
+  --mode-link: #2f55d4;
+  --mode-success: #0f7a4a;
+  --mode-success-bg: #e7f6ee;
+  --mode-warning: #8a5a00;
+  --mode-warning-bg: #fff4dc;
+  --mode-danger: #b42318;
+  --mode-danger-bg: #fdecea;
+  --mode-neutral: #374151;
+  --mode-neutral-bg: #f1f2f4;
+  --mode-chart-gold: #9a6700;
+  --mode-chart-green: #0f7a4a;
+  --mode-chart-red: #b42318;
+  --mode-chart-grid: #e6e8ec;
+  --mode-shadow: 0 1px 2px #0000000d;
+  --mode-guide: var(--mode-raised);
+  --chart-secondary: #6d4bb0;
+  --chart-volume: #8b93a1;
+
   --bg: var(--mode-bg);
   --line: var(--mode-border);
   --text: var(--mode-text);
@@ -44,48 +55,45 @@
   --soft: var(--mode-soft);
   --accent: var(--mode-primary);
   --amber: var(--mode-chart-gold);
+  --cyan: var(--mode-link);
   --chart-bg: var(--mode-panel);
   --chart-text: var(--mode-muted);
   --chart-grid: var(--mode-chart-grid);
   --chart-up: var(--mode-chart-green);
   --chart-down: var(--mode-chart-red);
   --chart-gold: var(--mode-chart-gold);
-  --chart-secondary: #bba8ce;
-  --chart-volume: #89986e;
 }
 
-@media (max-width: 1200px) {
-  :root {
-    --theme-sidebar: 204px;
-  }
-}
-
-:root[data-theme="light"] {
-  --mode-bg: #e8ece2;
-  --mode-shell: #f6f8f2;
-  --mode-panel: #ffffff;
-  --mode-raised: #eef2e8;
-  --mode-hover: #e6eddc;
-  --mode-border: #c5ceba;
-  --mode-input-border: #7c886e;
-  --mode-text: #232b1c;
-  --mode-muted: #536047;
-  --mode-soft: #5e6a51;
-  --mode-primary: #bfe767;
-  --mode-primary-ink: #253213;
-  --mode-link: #405d1c;
-  --mode-success: #365321;
-  --mode-success-bg: #e8f1dc;
-  --mode-warning: #755111;
-  --mode-warning-bg: #faf0d7;
-  --mode-danger: #933e2e;
-  --mode-danger-bg: #fbece7;
-  --mode-chart-gold: #896316;
-  --mode-chart-green: #4f7a29;
-  --mode-chart-red: #ad4730;
-  --mode-chart-grid: #d9e0ce;
-  --mode-shadow: 0 12px 38px #2736180b;
-  --mode-guide: linear-gradient(120deg, #e6efda, #f9fbf4 75%);
-  --chart-secondary: #7e5993;
-  --chart-volume: #788c5a;
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --mode-bg: #0e1116;
+  --mode-shell: #0e1116;
+  --mode-panel: #161a21;
+  --mode-raised: #1c212a;
+  --mode-hover: #232935;
+  --mode-border: #2a303a;
+  --mode-input-border: #48505e;
+  --mode-text: #e8eaed;
+  --mode-muted: #a3abb8;
+  --mode-soft: #a3abb8;
+  --mode-primary: #7b97f0;
+  --mode-primary-ink: #0e1116;
+  --mode-accent-bg: #1f2a4a;
+  --mode-accent-text: #b4c5f8;
+  --mode-link: #8ea7f3;
+  --mode-success: #6fd3a0;
+  --mode-success-bg: #12291f;
+  --mode-warning: #f0c46c;
+  --mode-warning-bg: #2e2412;
+  --mode-danger: #f59a90;
+  --mode-danger-bg: #331816;
+  --mode-neutral: #c9ced6;
+  --mode-neutral-bg: #252b35;
+  --mode-chart-gold: #e2b54f;
+  --mode-chart-green: #5cc794;
+  --mode-chart-red: #ef7f73;
+  --mode-chart-grid: #2a303a;
+  --mode-shadow: 0 1px 2px #00000040;
+  --chart-secondary: #b9a3e8;
+  --chart-volume: #6b7480;
 }

@@ -39,7 +39,7 @@ def master():
             "segment": "NSE_INDEX",
             "exchange": "NSE",
             "instrument_type": "INDEX",
-            "trading_symbol": "Nifty 50",
+            "trading_symbol": "NIFTY",
             "name": "Fictional test benchmark",
             "instrument_key": INDEX_KEY,
         },

@@ -14,12 +14,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Literal
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
+from .agents.portfolio_agent import prioritize_cases
 from .api_schemas import (
     AnalysisRequest,
     BacktestRequest,
@@ -27,6 +29,7 @@ from .api_schemas import (
     HistoryRequest,
     ImportRequest,
     MonteCarloRequest,
+    PortfolioReviewRequest,
     SyncRequest,
     TechnicalRequest,
 )
@@ -35,7 +38,7 @@ from .experiments import run_experiments
 from .exporting import case_payload
 from .ingestion import import_articles, import_market_prices
 from .live_data import sync_historical, sync_live
-from .model_client import ModelError
+from .model_client import ModelClient, ModelError
 from .plain_language import describe_run
 from .pipeline import (
     Dependencies,
@@ -376,6 +379,42 @@ def create_app(root=None, settings=None):
             if not run or not namespace(run.article_id, deps.settings):
                 raise HTTPException(404, "Saved run not found in this universe")
             return {"text": explain_run(run_id, deps)}
+
+    @api.post("/api/portfolio-review")
+    def portfolio_review(
+        payload: PortfolioReviewRequest, workspace: Workspace = "local", universe: Universe = "live"
+    ):
+        if workspace != "local" or universe != "live":
+            raise HTTPException(422, "Use the offline evidence review in demo workspaces")
+        with dependencies(workspace, universe) as deps:
+            settings = deps.settings
+            settings.llm.model = os.getenv("PORTFOLIO_MODEL", "").strip() or settings.llm.model
+            if not settings.llm.model:
+                raise HTTPException(
+                    503, "Configure PORTFOLIO_MODEL or LLM_MODEL for AI suggestions"
+                )
+            cases = []
+            for run_id in dict.fromkeys(payload.run_ids):
+                run = deps.storage.get_run(run_id)
+                if (
+                    not run
+                    or not run.assessment
+                    or not run.extraction
+                    or not run.extraction.company_id
+                    or run.parent_run_id
+                    or not namespace(run.article_id, settings)
+                    or not namespace(run.extraction.company_id, settings)
+                ):
+                    raise HTTPException(404, "A saved case is unavailable in this workspace")
+                cases.append(run)
+        settings.mode = "live"
+        settings.max_requests = 1
+        settings.llm.max_output_tokens = min(settings.llm.max_output_tokens, 256)
+        client = ModelClient(settings, str(uuid4()))
+        try:
+            return prioritize_cases(client, payload.topic, cases)
+        finally:
+            client.session.close()
 
     # ---------------------------------------------------------------------------
     # Technicals and strategy lab (read-only research)

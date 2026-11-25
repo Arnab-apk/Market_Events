@@ -4,7 +4,7 @@ by schemas.py.
 """
 
 from datetime import date
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -25,6 +25,15 @@ class AnalysisRequest(WebRequest):
     policy: ExecutionPolicy = ExecutionPolicy.slm_delegate
     mode: Literal["replay", "live"] = "replay"
     repeat_run: bool = False
+
+
+class PortfolioReviewRequest(WebRequest):
+    """Bounded selection of saved cases for a single portfolio research question."""
+
+    topic: Literal["recent", "conflicts", "gaps"]
+    run_ids: list[Annotated[str, Field(min_length=1, max_length=80)]] = Field(
+        min_length=1, max_length=12
+    )
 
 
 class ImportRequest(WebRequest):

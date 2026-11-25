@@ -44,15 +44,15 @@ def live_deps(tmp_path, monkeypatch):
         yield Dependencies(storage, settings)
 
 
-def test_live_token_is_excluded_and_environment_alias_has_lower_priority(monkeypatch):
+def test_live_token_is_excluded_and_environment_alias_has_lower_priority(monkeypatch, tmp_path):
     monkeypatch.setenv("UPSTOX_ANALYTICS_TOKEN", "fake-primary-secret")
     monkeypatch.setenv("UPSTOX_ACCESS_TOKEN", "fake-alias-secret")
-    settings = load_settings(ROOT)
+    settings = load_settings(tmp_path)
     assert settings.live_data.access_token.get_secret_value() == "fake-primary-secret"
     assert "access_token" not in settings.snapshot()["live_data"]
     assert "fake-primary-secret" not in json.dumps(settings.snapshot())
     monkeypatch.delenv("UPSTOX_ANALYTICS_TOKEN")
-    assert load_settings(ROOT).live_data.access_token.get_secret_value() == "fake-alias-secret"
+    assert load_settings(tmp_path).live_data.access_token.get_secret_value() == "fake-alias-secret"
 
 
 def test_readiness_is_offline_and_never_exposes_the_token(live_deps, monkeypatch):
@@ -302,7 +302,7 @@ def test_actual_adapter_sync_to_explicit_model_batch_preserves_cutoff_and_identi
             "segment": "NSE_INDEX",
             "exchange": "NSE",
             "instrument_type": "INDEX",
-            "trading_symbol": "Nifty 50",
+            "trading_symbol": "NIFTY",
             "instrument_key": "NSE_INDEX|Nifty 50",
             "name": "Nifty 50",
         },

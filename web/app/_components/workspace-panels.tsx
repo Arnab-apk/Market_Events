@@ -1,30 +1,51 @@
 "use client";
 
-// Section panels: Event research (POST /api/analyse), Saved results (GET /api/case/<id>, POST /api/outcomes,
-// /api/explain/<id>), Import evidence (POST /api/import), Price indicators (POST /api/technicals),
-// Connections (POST /api/sync/<kind>, /api/analyse-news) and Comparisons (GET /api/comparisons).
-import { useEffect, useMemo, useState } from "react";
+// Screen panels. Analyse (POST /api/analyse), Results › Saved runs (GET /api/case/<id>, POST /api/outcomes,
+// /api/explain/<id>), Results › Compare methods (GET /api/comparisons), Lab › Indicators (POST /api/technicals and /api/history),
+// Settings › Import data (POST /api/import) and Settings › Connections (POST /api/sync/<kind>, /api/analyse-news).
+// VerdictCard is shared by Analyse and Saved runs.
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { WorkspaceSummary } from "./workspace-summary";
-import {
-  ArrowDownToLine, CheckCircle2, Database, FileJson, FlaskConical,
-  LoaderCircle, Play, PlugZap, RefreshCw, ShieldCheck, Star,
-} from "lucide-react";
-import { Empty, JsonView, PageHeading, PanelProps, Status } from "./research-app";
-import { PriceChart } from "./research-charts";
-import { INTROS } from "./glossary";
-import { Count, CutoffField, Term, Time, formatIst } from "./ui";
+import { ArrowDownToLine, CheckCircle2, FileJson, LoaderCircle, Play, RefreshCw } from "lucide-react";
+import { Empty, JsonView, PanelProps, Status } from "./research-app";
+import { HostedChart, PriceChart } from "./research-charts";
+import { CutoffField, Term, Time, formatIst } from "./ui";
 import { markTourStep } from "./demo-tour";
-import { Article, Bar, Outcome, POLICY_ORDER, Run, Workspace, downloadJson, format, human, isSyntheticSource, policyLabel, signedPercent, signedScore, sourceTitle, wholePercent } from "./types";
+import { Avatar, ScoreBreakdown, ScoreValue, StatTile, StoryRow, VerdictPill, verdictOf } from "./simple-ui";
+import {
+  Article, Bar, Company, History, Outcome, POLICY_ORDER, Run, Workspace, downloadJson, format, human, isSyntheticSource,
+  policyLabel, signedPercent, signedScore, sourceBody, sourceTitle, wholePercent,
+} from "./types";
 
 const POLICIES = POLICY_ORDER;
 const FEATURE_LABELS: Record<string, string> = {
   equity_return: "Equity return (reaction day)", benchmark_return: "Sector benchmark return", excess_return: "Equity excess return",
   relative_volume: "Relative volume (context only)", commodity_return: "Commodity return",
 };
+const COMMODITY_NAMES: Record<string, string> = { "MCX:CRUDEOIL": "Crude oil" };
 const tierOf = (model: string) => /slm|small/i.test(model) ? "small" : /llm|large/i.test(model) ? "large" : "other";
 const companyName = (data: Workspace, id: string | null | undefined) => data.companies.find(row => row.instrument_id === id)?.name ?? id ?? "Unknown company";
+const byNewest = (a: Run, b: Run) => Date.parse(b.created_at) - Date.parse(a.created_at);
+/** "NSE:NIFTY_MATERIALS" → "Nifty Materials". Display only. */
+const indexName = (id?: string) => id ? (id.split(":").pop() ?? id).split("_").map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(" ") : "its benchmark";
+/** Story titles carry a spoiler in brackets ("… (mixed evidence)"); the verdict pill says that instead. */
+const storyHeadline = (article: Article) => article.story_title?.replace(/\s*\(.*\)$/, "") ?? sourceTitle(article.text).title;
+
+/** Newest saved run per article, for the verdict word in story lists. */
+function latestByArticle(runs: Run[]) {
+  const map = new Map<string, Run>();
+  for (const run of [...runs].sort(byNewest)) if (!map.has(run.article_id)) map.set(run.article_id, run);
+  return map;
+}
+/** The company a story is about: the saved extraction first, else the first company named in the text. */
+function companyOf(data: Workspace, article?: Article | null, run?: Run | null): Company | undefined {
+  const id = run?.extraction?.company_id;
+  if (id) return data.companies.find(row => row.instrument_id === id);
+  if (!article) return undefined;
+  const text = article.text.toLowerCase();
+  return data.companies.find(row => [row.name, ...(row.aliases ?? [])].some(name => text.includes(name.toLowerCase())));
+}
 
 function useAction() {
   const [busy, setBusy] = useState(false);
@@ -40,10 +61,13 @@ function useAction() {
 function ErrorMessage({ message }: { message: string }) {
   return message ? <div className="alert error" role="alert">{message}</div> : null;
 }
-function Submit({ busy, children, disabled }: { busy: boolean; children: React.ReactNode; disabled?: boolean }) {
-  return <button type="submit" className="button primary" disabled={busy || disabled}>{busy ? <LoaderCircle className="spin" size={16} /> : <Play size={15} />}{busy ? "Working…" : children}</button>;
+function Submit({ busy, children, disabled, label }: { busy: boolean; children: ReactNode; disabled?: boolean; label?: string }) {
+  return <button type="submit" className="button primary" aria-label={label} disabled={busy || disabled}>{busy && <LoaderCircle className="spin" size={16} aria-hidden="true" />}{busy ? "Working…" : children}</button>;
 }
-/** Group exact-duplicate article texts so the inbox doesn't repeat the same headline. */
+function Loading({ text }: { text: string }) {
+  return <p className="loading-line" role="status"><LoaderCircle className="spin" size={18} aria-hidden="true" />{text}</p>;
+}
+/** Group exact-duplicate article texts so the story list doesn't repeat the same headline. */
 function groupArticles(articles: Article[]) {
   const groups = new Map<string, Article[]>();
   for (const row of articles) {
@@ -53,31 +77,60 @@ function groupArticles(articles: Article[]) {
   return [...groups.values()];
 }
 
-// ============================== Event research ==============================
-export function EventsPanel({ api, data, refresh, href }: PanelProps) {
+// ============================== Analyse ==============================
+export function EventsPanel(props: PanelProps) {
   const parameters = useSearchParams();
+  const initialArticle = parameters.get("article");
+  const initialCutoff = parameters.get("cutoff");
+  const companyFilter = parameters.get("company");
+  return <ArticleAnalysis key={JSON.stringify([initialArticle, initialCutoff, companyFilter])} {...props}
+    initialArticle={initialArticle} initialCutoff={initialCutoff} companyFilter={companyFilter} />;
+}
+
+function ArticleAnalysis({ api, data, refresh, href, initialArticle, initialCutoff, companyFilter }: PanelProps & {
+  initialArticle: string | null; initialCutoff: string | null; companyFilter: string | null;
+}) {
   const story = useMemo(() => data.demo_story ?? [], [data.demo_story]);
   const featured = story.map(item => data.articles.find(row => row.article_id === item.article_id)).filter((row): row is Article => Boolean(row));
-  const companyFilter = parameters.get("company");
-  const filterName = companyFilter ? companyName(data, companyFilter) : null;
+  const latest = useMemo(() => latestByArticle(data.runs), [data.runs]);
+  const filteredCompany = data.companies.find(company => company.instrument_id === companyFilter);
+  const filterName = filteredCompany?.name ?? companyFilter?.split(":").slice(-2).join(":");
+  const scopedArticles = useMemo(() => companyFilter ? data.articles.filter(row =>
+    companyOf(data, row, latest.get(row.article_id))?.instrument_id === companyFilter) : data.articles,
+  [companyFilter, data, latest]);
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [articleId, setArticleId] = useState(parameters.get("article") || featured[0]?.article_id || data.articles[0]?.article_id || "");
+  const [articleId, setArticleId] = useState(() => {
+    const explicit = data.articles.find(row => row.article_id === initialArticle);
+    if (explicit) return explicit.article_id;
+    if (!companyFilter) return featured[0]?.article_id ?? data.articles[0]?.article_id ?? "";
+    const ordered = [...scopedArticles].sort((a, b) => Date.parse(b.published_at) - Date.parse(a.published_at));
+    const withEvidence = ordered.find(row => latest.get(row.article_id)?.assessment);
+    return withEvidence?.article_id ?? ordered[0]?.article_id ?? "";
+  });
   const demoCutoff = story.find(item => item.article_id === articleId)?.suggested_decision_times?.[0] ?? story[0]?.suggested_decision_times?.[0] ?? "2026-01-12T12:00:00Z";
-  const [cutoff, setCutoff] = useState(parameters.get("cutoff") || (data.workspace === "demo" ? demoCutoff : new Date().toISOString()));
+  const [cutoff, setCutoff] = useState(() => initialCutoff || (data.workspace === "demo" ? demoCutoff : new Date().toISOString()));
   const [policy, setPolicy] = useState("slm_delegate");
-  const [mode, setMode] = useState("replay");
+  const mode = data.workspace === "demo" ? "replay" : "live";
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const storyHeading = useRef<HTMLHeadingElement>(null);
   const [repeat, setRepeat] = useState(false);
   const [result, setResult] = useState<Run | null>(null);
   const [trio, setTrio] = useState<Run[]>([]);
   const action = useAction();
   const article = data.articles.find(row => row.article_id === articleId);
-  const articleTitle = article ? sourceTitle(article.text) : null;
-  const storyItem = story.find(item => item.article_id === articleId);
+  const shown = result ?? latest.get(articleId) ?? null;
+  const company = companyOf(data, article, shown);
   useEffect(() => { if (story[0] && articleId === story[0].article_id) markTourStep("story"); }, [articleId, story]);
-  function select(id: string) { setArticleId(id); setResult(null); setTrio([]); }
+  function select(id: string) {
+    setArticleId(id); setResult(null); setTrio([]);
+    if (pickerOpen) {
+      setPickerOpen(false);
+      requestAnimationFrame(() => storyHeading.current?.focus());
+    }
+  }
   function analyse(policies: readonly string[]) {
-    if (!cutoff) return;
+    if (!cutoff || !articleId || action.busy) return;
     setResult(null); setTrio([]);
     void action.execute(async () => {
       const runs: Run[] = [];
@@ -88,130 +141,204 @@ export function EventsPanel({ api, data, refresh, href }: PanelProps) {
     });
   }
   const matchesFilter = (row: Article) => {
-    const text = `${row.text} ${row.article_id}`.toLowerCase();
-    if (query && !text.includes(query.toLowerCase())) return false;
-    if (filterName && !text.includes(filterName.toLowerCase().split(" ")[0])) return false;
-    return true;
+    const text = `${row.text} ${row.article_id} ${row.story_title ?? ""}`.toLowerCase();
+    return !query || text.includes(query.toLowerCase());
   };
   const featuredIds = new Set(featured.map(row => row.article_id));
-  const groups = groupArticles(data.articles.filter(row => !featuredIds.has(row.article_id) && matchesFilter(row)));
-  const pinned = featured.filter(matchesFilter);
-  const item = (row: Article, extra?: React.ReactNode) => <button key={row.article_id} className={`selection-item ${row.article_id === articleId ? "active" : ""}`} disabled={action.busy} aria-pressed={row.article_id === articleId} onClick={() => select(row.article_id)}>
-    <strong>{row.story_title ?? sourceTitle(row.text).title}</strong>
-    {row.story_title && <span className="selection-text">{sourceTitle(row.text).title}</span>}
-    <small>{sourceTitle(row.text).synthetic && <span className="synthetic-tag">Synthetic</span>}{formatIst(row.published_at)} · {row.article_id}{extra}</small>
-  </button>;
-  return <><PageHeading eyebrow="SOURCE → EVENT → EVIDENCE" title="Event research" description={INTROS.events} />
-    <WorkspaceSummary items={[{ label: "Source inbox", value: data.articles.length, detail: "Original articles in this workspace" }, { label: "Saved research", value: data.runs.length, detail: "Retained decisions and call traces" }, { label: "Research mode", value: data.workspace === "demo" ? "Recorded replay" : "Local", detail: "Analysis begins only when requested" }]} />
-    {!data.articles.length ? <section className="panel"><Empty title="Your event inbox is empty" description="Start with one dated financial article. Import a file or enter the original article manually, then return here to investigate it." action={<Link className="button primary" href={href("imports")}>Add your first article</Link>} /></section> : <>
-    <div className="split-layout"><section className="panel"><div className="panel-heading"><h2>Source inbox</h2><span className="pill neutral">{data.articles.length} articles</span></div><div className="panel-body">
-      <label className="field">Search sources<input value={query} onChange={e => setQuery(e.target.value)} placeholder="Company, phrase or article ID" /></label>
-      {filterName && <p className="filter-chip">Showing articles about <strong>{filterName}</strong> <Link href={href("events")}>Show all</Link></p>}
-      <div className="selection-list">
-        {pinned.length > 0 && <p className="selection-group"><Star size={13} aria-hidden="true" />Demo story articles</p>}
-        {pinned.map(row => item(row))}
-        {pinned.length > 0 && groups.length > 0 && <p className="selection-group">Other articles</p>}
-        {groups.map(group => { const [first, ...rest] = group; const open = expanded === first.article_id; return <div key={first.article_id} className="selection-group-items">
-          {item(first)}
-          {rest.length > 0 && <button type="button" className="text-button duplicates-toggle" aria-expanded={open} onClick={() => setExpanded(open ? null : first.article_id)}>{open ? "Hide" : "Show"} {rest.length} more {rest.length === 1 ? "version" : "versions"} with the same text</button>}
-          {open && rest.map(row => item(row))}
+  const scopedIds = new Set(scopedArticles.map(row => row.article_id));
+  const groups = groupArticles(scopedArticles.filter(row => !featuredIds.has(row.article_id) && matchesFilter(row)));
+  const pinned = featured.filter(row => scopedIds.has(row.article_id) && matchesFilter(row));
+  const row = (item: Article) => {
+    const run = latest.get(item.article_id);
+    const who = companyOf(data, item, run)?.name;
+    return <StoryRow key={item.article_id} title={storyHeadline(item)} active={item.article_id === articleId} disabled={action.busy} onClick={() => select(item.article_id)}
+      meta={who ?? formatIst(item.published_at)} verdict={run ? verdictOf(run) : undefined} />;
+  };
+  const live = data.workspace === "local" && data.universe === "live";
+  if (companyFilter && !article) return <section className="card flow"><Empty title={`No stories for ${filterName}`} description={filteredCompany ? "This workspace has no matching news for the company yet." : "This holding is outside the current research universe."} action={<div className="actions">
+    {live && filteredCompany && <Link className="button primary" href={href("settings", { tab: "connections", company: filteredCompany.instrument_id })}>Refresh company news</Link>}
+    <Link className="button secondary" href={href("analyse")}>Show all stories</Link>
+  </div>} /></section>;
+  if (!data.articles.length) return <section className="card flow"><Empty title="No stories yet" description="Add a dated news article to begin your analysis." action={<div className="actions">
+    {live && <Link className="button primary" href={href("settings", { tab: "connections" })}>Connect real data</Link>}
+    <Link className={`button ${live ? "secondary" : "primary"}`} href={href("settings", { tab: "import" })}>Import news</Link>
+  </div>} /></section>;
+  const title = article ? sourceTitle(article.text) : null;
+  return <div className="analyse-layout">
+    <button type="button" className="button secondary story-picker-toggle" aria-expanded={pickerOpen} aria-controls="analyse-story-picker"
+      onClick={() => setPickerOpen(open => !open)}>{pickerOpen ? "Close story picker" : "Change story"}</button>
+    <aside id="analyse-story-picker" className={`card analyse-stories${pickerOpen ? " is-open" : ""}`} aria-labelledby="stories-title">
+      <h2 id="stories-title">Stories <span className="muted">({data.articles.length})</span></h2>
+      <label className="field">Search<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Company or phrase" /></label>
+      {filterName && <p className="filter-chip">Showing stories about <strong>{filterName}</strong> <Link href={href("analyse")}>Show all</Link></p>}
+      <div className="story-rows">
+        {pinned.length > 0 && groups.length > 0 && <p className="story-group">Demo story</p>}
+        {pinned.map(row)}
+        {pinned.length > 0 && groups.length > 0 && <p className="story-group">Other articles</p>}
+        {groups.map(group => { const [first, ...rest] = group; const open = expanded === first.article_id; return <div key={first.article_id} className="story-rows">
+          {row(first)}
+          {rest.length > 0 && <button type="button" className="text-button" aria-expanded={open} onClick={() => setExpanded(open ? null : first.article_id)}>{open ? "Hide" : "Show"} {rest.length} more {rest.length === 1 ? "version" : "versions"} with the same text</button>}
+          {open && rest.map(row)}
         </div>; })}
-        {!pinned.length && !groups.length && <p className="muted">No sources match this search.</p>}
-      </div></div></section>
-      <section className="panel"><div className="panel-heading"><h2>Inspect & analyse</h2><span className={`pill ${articleTitle?.synthetic ? "amber" : "neutral"}`}>{articleTitle?.synthetic || data.workspace === "demo" ? "SYNTHETIC SOURCE" : "IMPORTED SOURCE"}</span></div><div className="panel-body">
-        {article && <>{storyItem && <p className="story-note"><Star size={13} aria-hidden="true" />{storyItem.story_title}</p>}<div className="source-meta"><span><Term name="Published / First seen">Published</Term> <Time value={article.published_at} /></span><span>First seen <Time value={article.first_seen_at} /></span>{isSyntheticSource(article.source_url) ? <span>Synthetic article · no web page</span> : <a href={article.source_url} target="_blank" rel="noreferrer">Open source ↗</a>}</div><blockquote className="source-text">{article.text}</blockquote></>}
-        <form inert={action.busy} aria-busy={action.busy} onSubmit={event => { event.preventDefault(); analyse([policy]); }}>
-          <CutoffField label={<Term name="Decision cutoff" />} value={cutoff} onChange={value => { setCutoff(value); setResult(null); setTrio([]); }}
-            presets={data.workspace === "demo" ? [{ label: `Use demo cutoff (${formatIst(demoCutoff).replace(/ \d{4},/, ",")})`, value: demoCutoff }] : []} hint="Only articles and prices available before this moment are used" />
-          <div className="form-grid two">
-            <label className="field">Research method<select value={policy} onChange={e => { setPolicy(e.target.value); setResult(null); }}>{POLICIES.map(each => <option key={each} value={each}>{policyLabel(each)}</option>)}</select><small><Term name={policyLabel(policy)}>What does this method do?</Term></small></label>
-            <label className="field">Analysis mode<select value={mode} onChange={e => setMode(e.target.value)}><option value="replay">Recorded replay (demo articles only)</option>{data.workspace !== "demo" && <option value="live">Configured models (sends requests)</option>}</select><small><Term name={mode === "replay" ? "Recorded replay" : "Live (configured models)"}>What does this mode do?</Term></small></label>
+        {!pinned.length && !groups.length && <p className="muted">No stories match this search.</p>}
+      </div>
+    </aside>
+
+    <div className="analyse-main">
+      <section className="company-head" aria-label="Company">
+        <Avatar name={company?.name ?? "?"} muted={!company} />
+        <div><h1>{company?.name ?? "Unmatched story"}</h1>
+          <p className="muted">{company ? [company.instrument_id.split(":")[0], company.trading_symbol ?? company.instrument_id.split(":").pop(), company.sector && human(company.sector), `benchmark ${indexName(company.benchmark_id)}`].filter(Boolean).join(" · ") : "No company in this workspace is named in the article."}</p></div>
+      </section>
+
+      <section className="card flow story-card" aria-labelledby="story-title">
+        {article && <>
+          <h2 id="story-title" ref={storyHeading} tabIndex={-1}>{storyHeadline(article)}</h2>
+          <blockquote className="source-text">{sourceBody(article.text)}</blockquote>
+          <p className="source-meta"><span><Term name="Published / First seen">Published</Term> <Time value={article.published_at} /></span><span>first seen <Time value={article.first_seen_at} /></span>{isSyntheticSource(article.source_url) ? <span>Synthetic article · no web page</span> : <a href={article.source_url} target="_blank" rel="noreferrer">Open source ↗</a>}{title?.synthetic && <span className="synthetic-tag">Synthetic</span>}</p>
+        </>}
+        <form className="analyse-form" inert={action.busy} aria-busy={action.busy} onSubmit={event => { event.preventDefault(); analyse([policy]); }}>
+          <CutoffField label={<Term name="Decision cutoff">Decision time</Term>} value={cutoff} onChange={value => { setCutoff(value); setResult(null); setTrio([]); }}
+            presets={data.workspace === "demo" ? [{ label: `Use demo cutoff (${formatIst(demoCutoff).replace(/ \d{4},/, ",")})`, value: demoCutoff }] : []} hint="Only news and prices available before the decision time are used." />
+          <div className="analyse-controls">
+            <label className="field grow">Method<select value={policy} onChange={event => { setPolicy(event.target.value); setResult(null); }}>{POLICIES.map(each => <option key={each} value={each}>{policyLabel(each)}</option>)}</select><small><Term name={policyLabel(policy)}>What does this method do?</Term></small></label>
+            <Submit busy={action.busy} disabled={!cutoff || !articleId} label={mode === "replay" ? "Run recorded replay" : "Analyse with configured models"}>{mode === "replay" ? "Run recorded replay" : "Analyse with configured models"}</Submit>
           </div>
-          <label className="check-label"><input type="checkbox" checked={repeat} onChange={e => setRepeat(e.target.checked)} /><Term name="Explicit repeat experiment">Explicit repeat experiment</Term> (creates a linked run)</label>
-          <div className="form-actions"><Submit busy={action.busy} disabled={!cutoff || !articleId}>Analyse and save run</Submit><button type="button" className="button secondary" disabled={action.busy || repeat || !articleId || !cutoff} onClick={() => analyse(POLICIES)}>Analyse under all three methods</button><p>{mode === "live" ? "This sends the article to your configured model providers." : data.workspace === "demo" ? "Recorded replay: no AI model is called." : "Replay only covers the bundled demo articles. Switch to the Synthetic demo, or set up live models in Connections."}</p></div>
+          <p className="muted small">{mode === "live" ? "This sends the article to your configured model providers." : "Recorded replay uses saved model responses."}</p>
+          <details className="more-options"><summary>More options</summary>
+            <div className="more-body">
+              <label className="check-label"><input type="checkbox" checked={repeat} onChange={event => setRepeat(event.target.checked)} /><span><Term name="Explicit repeat experiment">Repeat experiment</Term> (creates a linked run)</span></label>
+              <div className="actions"><button type="button" className="button secondary" disabled={action.busy || repeat || !articleId || !cutoff} onClick={() => analyse(POLICIES)}>Run all three methods and compare</button></div>
+            </div>
+          </details>
         </form>
         <ErrorMessage message={action.error} />
-      </div></section></div>
-    {(trio.length > 0 || result) && <section className="panel result-panel" aria-live="polite"><div className="panel-heading"><h2>Result</h2>{result && <button className="button secondary" onClick={() => downloadJson(result, `run-${result.run_id}.json`)}><ArrowDownToLine size={15} />Download run snapshot</button>}</div><div className="panel-body">
-      {trio.length > 0 && <PolicyTrio runs={trio} />}
-      {result && <RunSummary run={result} data={data} onCutoff={setCutoff} article={article} onSelect={select} />}
-    </div></section>}
-    </>}
-  </>;
+      </section>
+
+      <p className="sr-only" role="status">{action.busy ? "Analysing…" : result ? `Analysis saved: ${result.assessment ? human(result.assessment.direction) : human(result.status)}` : ""}</p>
+      {shown ? <VerdictCard run={shown} data={data} article={article} trio={trio} fresh={Boolean(result)} href={href} onCutoff={value => { setCutoff(value); setResult(null); }} />
+        : <section className="card flow"><p className="muted">No saved run for this story yet. Choose a decision time and a method, then press Analyse.</p></section>}
+    </div>
+  </div>;
 }
 
-// ============================== Shared result pieces ==============================
+// ============================== Verdict card (Analyse + Results) ==============================
 const STATUS_COPY: Record<string, { title: string; text: string }> = {
-  ineligible: { title: "This article wasn't available yet.", text: "It was first seen after your cutoff. Move the cutoff later to analyse it." },
-  irrelevant: { title: "Filtered out: not a market event.", text: "The screening step found nothing that should move this company's stock. No price evidence was needed." },
+  ineligible: { title: "This article wasn't available yet.", text: "It was first seen after your decision time. Move the decision time later to analyse it." },
+  irrelevant: { title: "Not relevant: not a market event.", text: "The screening step found nothing that should move this company's stock. No price evidence was needed." },
   duplicate: { title: "Same text as an earlier article.", text: "It reuses that article's result rather than analysing it twice." },
-  abstained: { title: "No label: evidence incomplete.", text: "Try a later cutoff or check the price data." },
+  abstained: { title: "No verdict: evidence incomplete.", text: "Try a later decision time or check the price data." },
   failed: { title: "The analysis stopped early.", text: "Nothing was overwritten; you can retry as a linked repeat." },
   partial: { title: "The analysis stopped early.", text: "The call budget ran out. Nothing was overwritten; you can retry as a linked repeat." },
 };
 
-function RunSummary({ run, data, article, onCutoff, onSelect }: { run: Run; data: Workspace; article?: Article; onCutoff?: (iso: string) => void; onSelect?: (id: string) => void }) {
-  const direction = run.assessment?.direction;
-  const tone = direction === "positive" ? "green" : direction === "negative" ? "red" : "neutral";
+/** One row per score component: equity vs benchmark and, for commodity events, the exposure-adjusted commodity move. */
+function breakdownRows(run: Run, data: Workspace) {
+  const inputs = run.assessment?.inputs;
+  const values = run.features?.values ?? {};
+  const company = companyOf(data, null, run);
+  const rule = inputs?.exposure?.rule;
+  return Object.entries(inputs?.components ?? {}).filter((entry): entry is [string, number] => typeof entry[1] === "number").map(([key, contribution]) => ({
+    contribution,
+    weight: inputs?.weights?.[key],
+    label: key === "equity" ? <>Stock vs {indexName(company?.benchmark_id)} · {signedPercent(values.excess_return)}</>
+      : key === "commodity" ? <>{COMMODITY_NAMES[rule?.commodity_id ?? run.extraction?.commodity_id ?? ""] ?? "Commodity"} {signedPercent(values.commodity_return)}{rule?.direction ? `, ${rule.direction < 0 ? "a cost" : "a benefit"} for ${company?.name ?? "this company"}` : ""}</>
+      : human(key),
+  }));
+}
+
+function ModelCalls({ run }: { run: Run }) {
+  return <div className="table-scroll"><table><thead><tr><th scope="col"><Term name="Filter / Extraction">Task</Term></th><th scope="col">Model</th><th scope="col">Mode</th><th scope="col">Status</th><th scope="col"><Term name="Input / output tokens" /></th><th scope="col">Latency</th></tr></thead><tbody>{run.calls.map((call, index) => <tr key={index}><td>{human(call.task)}</td><td>{call.model}</td><td>{call.mode}</td><td><Status value={call.status} /></td><td>{call.input_tokens == null && call.output_tokens == null ? <span className="muted">{call.mode === "replay" ? "Not recorded (replay)" : "Not reported"}</span> : `${format(call.input_tokens, 0)} / ${format(call.output_tokens, 0)}`}</td><td className="numeric">{format(call.latency_ms, 0)} ms</td></tr>)}</tbody></table></div>;
+}
+
+export function VerdictCard({ run, data, article, trio = [], fresh = false, href, onCutoff, auditOpen = false, inResults = false, snapshot, children }: {
+  run: Run; data: Workspace; article?: Article; trio?: Run[]; fresh?: boolean; href: PanelProps["href"]; onCutoff?: (iso: string) => void;
+  auditOpen?: boolean; inResults?: boolean; snapshot?: { value: unknown; name: string; label: string }; children?: ReactNode;
+}) {
+  const assessment = run.assessment;
+  const direction = assessment?.direction;
+  const outcome = data.outcomes.find(row => row.run_id === run.run_id);
   const features = Object.entries(run.features?.values || {});
-  const reasons = run.plain_reasons?.length ? run.plain_reasons : [...(run.assessment?.conflicts ?? []), ...(run.assessment?.abstention_reasons ?? [])];
-  const stateCopy = !run.assessment || direction === "abstain" ? STATUS_COPY[direction === "abstain" ? "abstained" : run.status] : undefined;
-  return <div className="run-summary">
-    <div className="subheading"><h2>{run.extraction ? human(run.extraction.event_type) : "Research result"}</h2><Term name="Run status"><Status value={run.status} /></Term></div>
-    <div className="source-meta"><span><Term name="Recorded replay">{run.mode === "replay" ? "Recorded replay (synthetic fixture outputs)" : "Live model inference"}</Term></span><span>Method: <Term name={policyLabel(run.policy)} /></span><span>Cutoff <Time value={run.decision_time} /></span>{run.extraction?.company_id && <span>{companyName(data, run.extraction.company_id)}</span>}</div>
-    {run.plain_summary && <p className="verdict">{run.plain_summary}</p>}
-    {stateCopy && <div className="state-card"><strong>{stateCopy.title}</strong><p>{run.status === "ineligible" && article ? <>It was first seen at <Time value={article.first_seen_at} />, after your cutoff (<Time value={run.decision_time} />). Move the cutoff later to analyse it.</> : reasons[0] ?? stateCopy.text}</p>
-      <div className="state-actions">
-        {run.status === "ineligible" && article && onCutoff && <button type="button" className="button secondary" onClick={() => onCutoff(article.first_seen_at)}>Set cutoff to first-seen time</button>}
-        {run.status === "irrelevant" && onSelect && <span className="muted">Try another article from the inbox.</span>}
-      </div></div>}
-    {run.assessment && <>
-      <div className="stat-list"><div className="stat-item"><span><Term name="Evidence label" /></span><strong className={`direction-${tone}`}>{human(run.assessment.direction)}</strong></div><div className="stat-item"><span><Term name="Signed evidence score" /></span><strong>{signedScore(run.assessment.evidence_score)}</strong><small><Term name="Threshold ±0.15" /></small></div><div className="stat-item"><span><Term name="Evidence coverage" /></span><strong>{wholePercent(run.assessment.coverage)}</strong><small><Term name="Minimum 60%" /></small></div></div>
-      {run.score_formula && <div className="score-formula"><h3>How the score was built</h3><p><code>{run.score_formula}</code></p></div>}
-      {reasons.length > 0 && <><h3>Why this label</h3><ul className="reason-list">{reasons.map((text, index) => <li key={index} className={run.assessment?.conflicts.length ? "conflict" : undefined}>{run.assessment?.conflicts.length && index === 0 ? <><Term name="Conflict" />: </> : null}{text}</li>)}</ul></>}
+  const reasons = run.plain_reasons?.length ? run.plain_reasons : [...(assessment?.conflicts ?? []), ...(assessment?.abstention_reasons ?? [])];
+  const stateCopy = !assessment || direction === "abstain" ? STATUS_COPY[direction === "abstain" ? "abstained" : run.status] : undefined;
+  const rows = breakdownRows(run, data);
+  const extraction = run.extraction;
+  const verdict = verdictOf(run);
+  const notes = reasons.map((text, index) => assessment?.conflicts.length && index === 0 ? <><Term name="Conflict" />: {text}</> : text);
+  return <section className="card flow verdict-card" aria-labelledby={`verdict-${run.run_id}`}>
+    <div className="card-head"><h2 id={`verdict-${run.run_id}`}>Verdict</h2><span className="muted small">{fresh ? "New run" : "Saved run"} · <Time value={run.decision_time} /> · {policyLabel(run.policy)}{run.mode === "replay" ? " · recorded replay" : " · live models"}</span></div>
+    {stateCopy && <div className="state-card"><strong>{stateCopy.title}</strong><p>{run.status === "ineligible" && article ? <>It was first seen at <Time value={article.first_seen_at} />, after your decision time (<Time value={run.decision_time} />).</> : assessment ? stateCopy.text : reasons[0] ?? run.plain_summary ?? stateCopy.text}</p>
+      {run.status === "ineligible" && article && onCutoff && <div className="actions"><button type="button" className="button secondary" onClick={() => onCutoff(article.first_seen_at)}>Set decision time to first-seen time</button></div>}
+      {run.status !== "completed" && <p className="muted small"><Term name="Run status">Status</Term>: <Status value={run.status} /></p>}</div>}
+    {assessment && <>
+      <div className="stat-grid">
+        <StatTile label={<Term name="Evidence label">Evidence</Term>} value={<VerdictPill verdict={verdict} size="lg" />} />
+        <StatTile label={<><Term name="Signed evidence score" /> (−1 to +1)</>} value={<ScoreValue value={assessment.evidence_score} verdict={verdict} />} detail={<Term name="Threshold ±0.15" />} />
+        <StatTile label={<Term name="Evidence coverage">Data coverage</Term>} value={wholePercent(assessment.coverage)} detail={<Term name="Minimum 60%" />} />
+      </div>
+      {run.plain_summary && <p className="verdict">{run.plain_summary}</p>}
+      {rows.length > 0 ? <ScoreBreakdown rows={rows} formula={run.score_formula && <code className="score-formula">{run.score_formula}</code>} notes={notes} />
+        : <>{run.score_formula && <p><code className="score-formula">{run.score_formula}</code></p>}{notes.length > 0 && <ul className="breakdown-notes">{notes.map((item, index) => <li key={index}>{item}</li>)}</ul>}</>}
     </>}
     {run.error && <div className="alert error">{run.error}</div>}
-    {features.length > 0 && <><h3>Numbers available at the cutoff</h3><div className="table-scroll"><table className="evidence-table"><thead><tr><th>Input</th><th>Value</th><th><Term name="Available / Missing / Stale / Not applicable">Status</Term></th></tr></thead><tbody>{features.map(([key, value]) => <tr key={key}><td><Term name={FEATURE_LABELS[key] || human(key)} /></td><td className="numeric">{value == null ? "—" : key === "relative_volume" ? `${format(value, 2)}×` : signedPercent(value)}</td><td>{run.features?.missing.includes(key) ? "Missing" : run.features?.stale.includes(key) ? "Stale" : value == null ? "Not applicable" : "Available"}</td></tr>)}</tbody></table></div></>}
-    {run.extraction?.source_spans.length ? <><h3><Term name="Supporting source passages" /></h3><ul className="passages">{run.extraction.source_spans.map((text, index) => <li key={index}>{text}</li>)}</ul></> : null}
-    <p className="muted footnote">Evidence scores describe collected inputs; they are not probabilities or forecasts.</p><JsonView value={run} title="Inspect saved extraction, numerical evidence and call trace" />
-  </div>;
+    {outcome?.status === "completed" && <p className="next-line"><span><Term name="Later outcome">What happened next</Term> <span className="muted">(next open → 5th close, after costs)</span></span><strong className={(outcome.net_return ?? 0) >= 0 ? "tone-success" : "tone-danger"}>{(outcome.net_return ?? 0) >= 0 ? "▲" : "▼"} {signedPercent(outcome.net_return)}</strong></p>}
+    {outcome?.status === "pending" && <p className="next-line"><span><Term name="Later outcome">What happened next</Term></span><span className="muted">Waiting for five later trading days</span></p>}
+
+    {features.length > 0 && <details className="fold"><summary>Numbers at the decision time</summary><div className="table-scroll"><table><thead><tr><th scope="col">Input</th><th scope="col">Value</th><th scope="col"><Term name="Available / Missing / Stale / Not applicable">Status</Term></th></tr></thead><tbody>{features.map(([key, value]) => <tr key={key}><td><Term name={FEATURE_LABELS[key] || human(key)} /></td><td className="numeric">{value == null ? "—" : key === "relative_volume" ? `${format(value, 2)}×` : signedPercent(value)}</td><td>{run.features?.missing.includes(key) ? "Missing" : run.features?.stale.includes(key) ? "Stale" : value == null ? "Not applicable" : "Available"}</td></tr>)}</tbody></table></div></details>}
+    <details className="fold" open={auditOpen}><summary>Full audit trail (sources, model calls, rules)</summary>
+      {extraction?.source_spans.length ? <><h3><Term name="Supporting source passages" /></h3><ul className="passages">{extraction.source_spans.map((text, index) => <li key={index}>{text}</li>)}</ul></> : null}
+      {extraction && <dl className="facts"><div><dt>Event type</dt><dd>{human(extraction.event_type)}</dd></div><div><dt>Company</dt><dd>{companyName(data, extraction.company_id)}</dd></div><div><dt><Term name="Validated / Unsupported / Unresolved">Quote check</Term></dt><dd>{human(extraction.validation_status)}</dd></div>{assessment?.inputs?.exposure?.rule?.relationship && <div><dt><Term name="Exposure rule" /></dt><dd>{assessment.inputs.exposure.rule.relationship}</dd></div>}</dl>}
+      <h3>Model call audit</h3><ModelCalls run={run} />
+      <JsonView value={run} title="Inspect saved extraction, numbers and call trace (JSON)" />
+    </details>
+    {trio.length > 0 && <details className="fold" open><summary>Compare 3 methods</summary><PolicyTrio runs={trio} /></details>}
+    {children}
+    <div className="actions">
+      <button type="button" className="button secondary" onClick={() => snapshot ? downloadJson(snapshot.value, snapshot.name) : downloadJson(run, `run-${run.run_id}.json`)}><ArrowDownToLine size={15} aria-hidden="true" />{snapshot?.label ?? "Download snapshot"}</button>
+      {!inResults && <Link className="button secondary" href={href("results", { tab: "saved", run: run.run_id })}>Open in Results</Link>}
+    </div>
+    <p className="muted small">The score measures evidence strength. It is not a probability or a forecast.</p>
+  </section>;
 }
 
 function PolicyTrio({ runs }: { runs: Run[] }) {
   const ordered = [...runs].sort((a, b) => POLICIES.indexOf(a.policy as typeof POLICIES[number]) - POLICIES.indexOf(b.policy as typeof POLICIES[number]));
-  return <><div className="subheading"><h2>Same article, three methods</h2><span className="pill neutral">SAME CUTOFF</span></div>
-    <div className="trio-grid">{ordered.map(run => <article key={run.run_id} className="trio-card">
-      <h3><Term name={policyLabel(run.policy)} /></h3>
-      <p className="trio-models"><Term name="Filter / Extraction">Filter</Term> {run.calls.find(call => call.task === "filter")?.model || "—"} → extraction {run.calls.find(call => call.task === "extraction")?.model || "—"}</p>
-      <dl><div><dt>Evidence label</dt><dd>{run.assessment ? human(run.assessment.direction) : "—"}</dd></div><div><dt>Score</dt><dd>{signedScore(run.assessment?.evidence_score)}</dd></div><div><dt>Coverage</dt><dd>{wholePercent(run.assessment?.coverage)}</dd></div><div><dt>Status</dt><dd><Status value={run.status} /></dd></div></dl>
-    </article>)}</div>
-    <p className="muted footnote">Replay returns the recorded fixture output for each call, so identical labels here show the pipeline is consistent. They are not evidence of model quality.</p></>;
+  return <><div className="trio-grid">{ordered.map(run => <article key={run.run_id} className="trio-card">
+    <h3><Term name={policyLabel(run.policy)} /></h3>
+    <p className="muted small"><Term name="Filter / Extraction">Filter</Term> {run.calls.find(call => call.task === "filter")?.model || "—"} → extraction {run.calls.find(call => call.task === "extraction")?.model || "—"}</p>
+    <dl><div><dt>Evidence</dt><dd><VerdictPill verdict={verdictOf(run)} /></dd></div><div><dt>Score</dt><dd>{signedScore(run.assessment?.evidence_score)}</dd></div><div><dt>Coverage</dt><dd>{wholePercent(run.assessment?.coverage)}</dd></div><div><dt>Status</dt><dd><Status value={run.status} /></dd></div></dl>
+  </article>)}</div>
+    <p className="muted small">Replay returns the recorded answer for each call, so matching verdicts show the pipeline is consistent. They are not evidence of model quality.</p></>;
 }
 
 function OutcomeCard({ outcome, synthetic, assessed, href }: { outcome: Outcome | null; synthetic: boolean; assessed: boolean; href: PanelProps["href"] }) {
-  if (!assessed) return <div className="outcome-card pending"><h3>No outcome to measure.</h3><p>This run produced no assessment, so there’s nothing to check against later prices.</p></div>;
-  if (!outcome) return <div className="outcome-card pending"><h3><Term name="Later outcome" /> · evaluated separately</h3><p>Not evaluated yet. Outcomes use prices <em>after</em> the cutoff and never change the saved decision.</p></div>;
-  if (outcome.status === "pending") return <div className="outcome-card pending"><h3>Waiting for five later trading days.</h3><p>Import more prices after the cutoff and evaluate again.</p><Link className="button secondary" href={href("imports")}>Import prices</Link></div>;
-  return <div className="outcome-card"><div className="subheading"><h3><Term name="Later outcome" /> · evaluated separately from the decision</h3><Status value={outcome.status} /></div>
-    {outcome.status === "completed" ? <div className="stat-list four"><div className="stat-item"><span><Term name="Entry → exit" /></span><strong>{format(outcome.entry_price)} → {format(outcome.exit_price)}</strong><small><Time value={outcome.entry_time} /> → <Time value={outcome.exit_time} /></small></div><div className="stat-item"><span><Term name="Gross / Net return">Net return</Term></span><strong>{signedPercent(outcome.net_return)}</strong><small>Gross {signedPercent(outcome.gross_return)}</small></div><div className="stat-item"><span><Term name="Benchmark return (outcome)">Benchmark return</Term></span><strong>{signedPercent(outcome.benchmark_return)}</strong><small>Same sessions</small></div><div className="stat-item"><span><Term name="Excess return (outcome)">Excess return</Term></span><strong>{signedPercent(outcome.excess_return)}</strong><small><Term name="Outcome label">Outcome label</Term>: {outcome.label ? human(outcome.label) : "—"}</small></div></div> : null}
-    <p className="footnote">{synthetic && <strong>Synthetic fixture prices. This is not real-market performance. </strong>}{outcome.reason}</p></div>;
+  if (!assessed) return <div className="outcome-card"><h3>No outcome to measure</h3><p className="muted">This run has no verdict, so there’s nothing to check against later prices.</p></div>;
+  if (!outcome) return <div className="outcome-card"><h3><Term name="Later outcome" /> · checked separately</h3><p className="muted">Not evaluated yet. Outcomes use prices <em>after</em> the decision time and never change the saved verdict.</p></div>;
+  if (outcome.status === "pending") return <div className="outcome-card"><h3>Waiting for five later trading days</h3><p className="muted">Import more prices after the decision time and evaluate again.</p><Link className="button secondary" href={href("settings", { tab: "import" })}>Import prices</Link></div>;
+  return <div className="outcome-card"><div className="card-head"><h3><Term name="Later outcome" /> · checked separately from the verdict</h3><Status value={outcome.status} /></div>
+    {outcome.status === "completed" && <div className="stat-grid">
+      <StatTile label={<Term name="Entry → exit" />} value={`${format(outcome.entry_price)} → ${format(outcome.exit_price)}`} detail={<><Time value={outcome.entry_time} /> → <Time value={outcome.exit_time} /></>} />
+      <StatTile label={<Term name="Gross / Net return">Net return</Term>} value={signedPercent(outcome.net_return)} detail={`Gross ${signedPercent(outcome.gross_return)}`} />
+      <StatTile label={<Term name="Benchmark return (outcome)">Benchmark return</Term>} value={signedPercent(outcome.benchmark_return)} detail="Same sessions" />
+      <StatTile label={<Term name="Excess return (outcome)">Excess return</Term>} value={signedPercent(outcome.excess_return)} detail={<><Term name="Outcome label" />: {outcome.label ? human(outcome.label) : "—"}</>} />
+    </div>}
+    <p className="muted small">{synthetic && <strong>Synthetic test prices, not real-market performance. </strong>}{outcome.reason}</p></div>;
 }
 
-// ============================== Saved results ==============================
+// ============================== Results › Saved runs ==============================
 type Case = { run: Run; article: { text: string; source_url: string } | null; outcome: Record<string, unknown> | null; observations: Record<string, unknown>[]; missing_observation_ids: string[] };
-function runOption(run: Run, data: Workspace) {
-  const story = data.articles.find(row => row.article_id === run.article_id)?.story_title;
-  const company = run.extraction?.company_id ? companyName(data, run.extraction.company_id) : run.article_id;
-  const what = story ? story.replace(/\s*\(.*\)$/, "") : run.extraction ? human(run.extraction.event_type) : human(run.status);
-  const label = run.assessment ? human(run.assessment.direction) : human(run.status);
-  return `${company} · ${what} · ${label[0].toUpperCase()}${label.slice(1)} · ${policyLabel(run.policy)} · ${formatIst(run.decision_time).replace(/ \d{4},/, "")}`;
-}
-export function SavedPanel({ api, data, refresh, href }: PanelProps) {
+export function SavedPanel(props: PanelProps) {
   const parameters = useSearchParams();
-  const ordered = useMemo(() => data.runs.slice().sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)), [data.runs]);
   const wantedArticle = parameters.get("article");
-  const initial = parameters.get("run") || ordered.find(run => run.status === "completed" && (!wantedArticle || run.article_id === wantedArticle))?.run_id || ordered.find(run => run.status === "completed")?.run_id || ordered[0]?.run_id || "";
+  const wantedRun = parameters.get("run");
+  return <SavedRuns key={JSON.stringify([wantedArticle, wantedRun])} {...props} wantedArticle={wantedArticle} wantedRun={wantedRun} />;
+}
+
+function SavedRuns({ api, data, refresh, href, wantedArticle, wantedRun }: PanelProps & { wantedArticle: string | null; wantedRun: string | null }) {
+  const ordered = useMemo(() => data.runs.slice().sort(byNewest), [data.runs]);
+  const initial = wantedRun || ordered.find(run => run.status === "completed" && (!wantedArticle || run.article_id === wantedArticle))?.run_id || ordered.find(run => run.status === "completed")?.run_id || ordered[0]?.run_id || "";
   const [identifier, setIdentifier] = useState(initial);
+  const [query, setQuery] = useState("");
   const [loaded, setLoaded] = useState<{ id: string; value: Case } | null>(null);
   const [explained, setExplained] = useState<{ id: string; text: string } | null>(null);
   const result = loaded?.id === identifier ? loaded.value : null;
@@ -228,23 +355,43 @@ export function SavedPanel({ api, data, refresh, href }: PanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [identifier, api]);
   const run = result?.run;
-  return <><PageHeading eyebrow="RETAINED RESEARCH" title="Saved results" description={INTROS.saved} />
-    <WorkspaceSummary items={[{ label: "Research library", value: data.runs.length, detail: "Immutable saved runs" }, { label: "Completed", value: data.runs.filter(each => each.status === "completed").length, detail: "Completed research attempts" }, { label: "Evidence assessed", value: data.runs.filter(each => each.assessment).length, detail: "Cases with retained assessments" }]} />
-    {!data.runs.length ? <section className="panel"><Empty title="No saved decisions yet" description="Investigate an article first. Your saved results will bring the original sources, evidence score, missing inputs and audit trail together here." action={<Link className="button primary" href={href("events")}>Start event research</Link>} /></section> : <><section className="panel"><div className="panel-heading"><h2>Open a saved case</h2><span className="pill neutral">{data.runs.length} runs</span></div><div className="panel-body">
-      <label className="field">Saved run (newest first)<select value={identifier} disabled={action.busy} onChange={e => setIdentifier(e.target.value)}>{ordered.map(each => <option key={each.run_id} value={each.run_id}>{runOption(each, data)}</option>)}</select><small>The case opens as soon as you pick it. Reading a case never calls a model.</small></label>
-    </div></section><ErrorMessage message={action.error} />
-      {action.busy && !result && <div className="loading-state"><LoaderCircle className="spin" size={20} /><p>Opening the saved case…</p></div>}
-      {result && run && <section className="panel"><div className="panel-heading"><h2>Saved case</h2><button className="button secondary" onClick={() => downloadJson(result, `case-${run.run_id}.json`)}><ArrowDownToLine size={15} />Download full case</button></div><div className="panel-body"><RunSummary run={run} data={data} />{result.article && <details className="json-view"><summary>Original article</summary><blockquote className="source-text">{result.article.text}</blockquote></details>}<hr className="section-divider" />
-        <OutcomeCard outcome={result.outcome as Outcome | null} synthetic={run.mode === "replay" || data.workspace === "demo"} assessed={Boolean(run.assessment)} href={href} />
-        {!result.outcome && run.assessment && <div className="form-actions"><button className="button secondary" disabled={action.busy} onClick={() => { void action.execute(async () => { await api("outcomes", {}); await refresh(); setResult(await api<Case>(`case/${encodeURIComponent(run.run_id)}`)); }); }}><CheckCircle2 size={15} />Evaluate later outcomes</button><p>Uses only sessions after the cutoff. The saved decision stays unchanged.</p></div>}
-        <JsonView value={{ observations: result.observations, missing_observation_ids: result.missing_observation_ids, outcome: result.outcome }} title="Original price observations and outcome record" />
-        <h3 style={{ marginTop: 20 }}>Model call audit</h3><div className="table-scroll"><table><thead><tr><th><Term name="Filter / Extraction">Task</Term></th><th>Model</th><th>Mode</th><th>Status</th><th><Term name="Input / output tokens" /></th><th>Latency</th></tr></thead><tbody>{run.calls.map((call, index) => <tr key={index}><td>{human(call.task)}</td><td>{call.model}</td><td>{call.mode}</td><td><Status value={call.status} /></td><td>{call.input_tokens == null && call.output_tokens == null ? <span className="muted">{call.mode === "replay" ? "Not recorded (replay)" : "Not reported"}</span> : `${format(call.input_tokens, 0)} / ${format(call.output_tokens, 0)}`}</td><td>{format(call.latency_ms, 0)} ms</td></tr>)}</tbody></table></div><hr className="section-divider" /><div className="toolbar"><div><h3>Optional explanation</h3><p>{run.mode === "replay" ? "Needs configured live models; not available for recorded replay runs." : "Creates a separate linked model trace. The original decision stays immutable."}</p></div><button className="button secondary" disabled={action.busy || !run.assessment || run.mode === "replay"} onClick={() => { void action.execute(async () => { const response = await api<{ text: string }>(`explain/${run.run_id}`, {}); setExplained({ id: run.run_id, text: response.text }); await refresh(); }); }}><Play size={14} />Request model explanation</button></div>{explanation && <p className="result-explanation">{explanation}</p>}</div></section>}
-    </>}
+  const describe = (each: Run) => {
+    const item = data.articles.find(row => row.article_id === each.article_id);
+    return { company: each.extraction?.company_id ? companyName(data, each.extraction.company_id) : companyOf(data, item)?.name ?? "—", story: item ? storyHeadline(item) : each.article_id };
+  };
+  const rows = ordered.filter(each => { if (!query) return true; const text = describe(each); return `${text.company} ${text.story} ${policyLabel(each.policy)} ${each.article_id}`.toLowerCase().includes(query.toLowerCase()); });
+  if (!data.runs.length) return <section className="card flow"><Empty title="No saved runs yet" description="Analyse a story first. Every run is saved here with its sources, numbers and audit trail." action={<Link className="button primary" href={href("analyse")}>Analyse a story</Link>} /></section>;
+  return <>
+    {wantedRun ? <div className="actions"><Link className="button secondary" href={href("results", { tab: "saved" })}>Browse saved runs</Link></div> : <section className="card flow">
+      <div className="card-head"><h2>Saved runs <span className="muted">({data.runs.length})</span></h2><label className="field inline">Search<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Company, story or method" /></label></div>
+      <div className="table-scroll tall"><table className="runs-table"><thead><tr><th scope="col">Company</th><th scope="col">Story</th><th scope="col">Cutoff</th><th scope="col">Method</th><th scope="col"><Term name="Evidence label">Verdict</Term></th><th scope="col">Score</th><th scope="col">Coverage</th><th scope="col"><Term name="Later outcome">Outcome</Term></th></tr></thead>
+        <tbody>{rows.map(each => { const text = describe(each); const outcome = data.outcomes.find(row => row.run_id === each.run_id); const selected = each.run_id === identifier; return <tr key={each.run_id} className={selected ? "is-selected" : undefined}>
+          <td>{text.company}</td>
+          <td><button type="button" className="row-button" aria-pressed={selected} disabled={action.busy && selected} onClick={() => setIdentifier(each.run_id)}>{text.story}</button></td>
+          <td><Time value={each.decision_time} /></td>
+          <td>{policyLabel(each.policy)}</td>
+          <td><VerdictPill verdict={verdictOf(each)} /></td>
+          <td className="numeric">{signedScore(each.assessment?.evidence_score)}</td>
+          <td className="numeric">{wholePercent(each.assessment?.coverage)}</td>
+          <td className="numeric">{outcome?.status === "completed" ? `${(outcome.net_return ?? 0) >= 0 ? "▲" : "▼"} ${signedPercent(outcome.net_return)}` : outcome ? human(outcome.status) : "—"}</td>
+        </tr>; })}{!rows.length && <tr><td colSpan={8} className="muted">No saved runs match this search.</td></tr>}</tbody></table></div>
+      <p className="muted small">Pick a story to open its verdict. Reading a saved run never calls a model.</p>
+    </section>}
+    <ErrorMessage message={action.error} />
+    {action.busy && !result && <Loading text="Opening the saved run…" />}
+    {result && run && <VerdictCard run={run} data={data} href={href} auditOpen inResults snapshot={{ value: result, name: `case-${run.run_id}.json`, label: "Download snapshot" }}>
+      {wantedRun && <p className="muted">Story <strong>{describe(run).story}</strong></p>}
+      {result.article && <details className="fold"><summary>Original article</summary><blockquote className="source-text">{result.article.text}</blockquote></details>}
+      <OutcomeCard outcome={result.outcome as Outcome | null} synthetic={run.mode === "replay" || data.workspace === "demo"} assessed={Boolean(run.assessment)} href={href} />
+      {!result.outcome && run.assessment && <div className="actions"><button type="button" className="button secondary" disabled={action.busy} onClick={() => { void action.execute(async () => { await api("outcomes", {}); await refresh(); setResult(await api<Case>(`case/${encodeURIComponent(run.run_id)}`)); }); }}><CheckCircle2 size={15} aria-hidden="true" />Evaluate later outcomes</button><p className="muted small">Uses only sessions after the decision time. The saved verdict stays unchanged.</p></div>}
+      <JsonView value={{ observations: result.observations, missing_observation_ids: result.missing_observation_ids, outcome: result.outcome }} title="Original price observations and outcome record (JSON)" />
+      <div className="explain"><div><h3>Optional explanation</h3><p className="muted small">{run.mode === "replay" ? "Needs configured live models; not available for recorded replay runs." : "Creates a separate linked model trace. The original verdict stays unchanged."}</p></div><button type="button" className="button secondary" disabled={action.busy || !run.assessment || run.mode === "replay"} onClick={() => { void action.execute(async () => { const response = await api<{ text: string }>(`explain/${run.run_id}`, {}); setExplained({ id: run.run_id, text: response.text }); await refresh(); }); }}><Play size={14} aria-hidden="true" />Request model explanation</button></div>
+      {explanation && <p className="verdict">{explanation}</p>}
+    </VerdictCard>}
   </>;
 }
 
-
-// ============================== Import evidence ==============================
+// ============================== Settings › Import data ==============================
 type ImportResult = { added: number; errors: Record<string, unknown>[]; warnings: string[] };
 function rowError(error: Record<string, unknown>, index: number) {
   const line = error.line ?? error.row ?? error.line_number ?? index + 1;
@@ -263,23 +410,58 @@ export function ImportsPanel({ api, data, refresh, href }: PanelProps) {
     await action.execute(async () => { setResult(await api<ImportResult>("import", { kind, content: text })); await refresh(); });
   }
   const errors = result?.errors ?? [];
-  return <><PageHeading eyebrow="BUILD YOUR EVIDENCE BASE" title="Import evidence" description={INTROS.imports} />
-    <WorkspaceSummary items={[{ label: "Article sources", value: data.articles.length, detail: "Original records retained" }, { label: "Market observations", value: data.observations_count, detail: "Saved price evidence" }, { label: "Supported formats", value: "JSONL / CSV", detail: "Articles and daily OHLCV" }]} /><div className="context-banner"><span className="context-icon"><Database size={18} /></span><div><strong>Active workspace: {data.workspace === "demo" ? "Synthetic demo (offline)" : data.universe === "live" ? <>My data – real companies (<Term name="LIVE: identifiers" />)</> : "My data – demo companies"}</strong><p>Imports retain their original availability. Conflicting saved records cannot be overwritten.</p></div></div>
-    <section className="panel"><div className="panel-heading"><h2>Import a file or paste records</h2><span className="pill neutral">LOCAL VALIDATION</span></div><div className="panel-body">
-      <div className="tabs" role="group" aria-label="What to import">{["articles", "prices"].map(value => <button key={value} type="button" disabled={action.busy} aria-pressed={kind === value} onClick={() => { setKind(value); setContent(""); setResult(null); }}>{value === "articles" ? "Articles (JSONL)" : "Market prices (CSV)"}</button>)}</div>
-      <form inert={action.busy} aria-busy={action.busy} onSubmit={e => { e.preventDefault(); void importContent(content); }}><div className="form-grid"><label className="field full">Choose {kind === "articles" ? <Term name="JSONL" /> : <Term name="OHLCV CSV" />} file<input type="file" accept={kind === "articles" ? ".jsonl,.json,.txt" : ".csv"} onChange={e => { const file = e.target.files?.[0]; if (file) { void file.text().then(text => { setContent(text); setResult(null); }); } }} /><small>Maximum 8 million characters. Original files stay on your device.</small></label><label className="field full">Records<textarea required rows={9} value={content} onChange={e => { setContent(e.target.value); setResult(null); }} placeholder={kind === "articles" ? '{"article_id":"LIVE:LOCAL:example","source_url":"https://…","text":"…","published_at":"2020-12-30T10:00:00Z","first_seen_at":"2020-12-30T10:05:00Z"}' : "instrument_id,market_family,timestamp,available_at,open,high,low,close,volume,currency,unit,contract_id"} /><small>{kind === "articles" ? "One JSON object per physical line. Publication and first-seen timestamps must include a timezone." : "CSV headers: instrument_id, market_family, timestamp, available_at, open, high, low, close, volume, currency, unit; optional contract_id."}</small></label></div><div className="form-actions"><Submit busy={action.busy}>Validate and import</Submit><p>Good rows are kept even when others fail. Every rejected row is listed with its reason.</p></div></form>
-      {kind === "articles" && <details className="json-view" open={!data.articles.length}><summary>Add one article manually — no file needed</summary><form inert={action.busy} aria-busy={action.busy} onSubmit={e => { e.preventDefault(); void importContent(JSON.stringify(article)); }}><div className="form-grid two">{(["article_id", "source_url", "published_at", "first_seen_at"] as const).map(field => <label className="field" key={field}>{human(field)}<input required value={article[field]} onChange={e => setArticle({ ...article, [field]: e.target.value })} placeholder={field.includes("_at") ? "2020-12-30T10:00:00Z" : field === "article_id" && data.universe === "live" ? "LIVE:LOCAL:unique-id" : undefined} /></label>)}<label className="field full">Original article text<textarea required rows={5} value={article.text} onChange={e => setArticle({ ...article, text: e.target.value })} /></label></div><div className="form-actions"><Submit busy={action.busy}>Save manual article</Submit></div></form></details>}
-    </div></section><ErrorMessage message={action.error} />
-    {result && <section className="panel"><div className="panel-heading"><h2>Import report</h2><Status value={errors.length ? "partial" : "completed"} /></div><div className="panel-body">
+  return <>
+    <section className="card flow">
+      <div className="card-head"><h2>Import evidence</h2><span className="muted small">{data.articles.length} articles · {format(data.observations_count, 0)} price rows saved</span></div>
+      <p className="muted">Into: <strong>{data.workspace === "demo" ? "Demo data (offline)" : data.universe === "live" ? <>My data – real companies (<Term name="LIVE: identifiers" />)</> : "My data – demo companies"}</strong>. Each record keeps when it was published and first seen; saved records are never overwritten.</p>
+      <div className="segmented" role="group" aria-label="What to import">{["articles", "prices"].map(value => <button key={value} type="button" disabled={action.busy} aria-pressed={kind === value} onClick={() => { setKind(value); setContent(""); setResult(null); }}>{value === "articles" ? "Articles (JSONL)" : "Market prices (CSV)"}</button>)}</div>
+      <form className="stack" inert={action.busy} aria-busy={action.busy} onSubmit={event => { event.preventDefault(); void importContent(content); }}>
+        <label className="field"><span>Choose {kind === "articles" ? <Term name="JSONL" /> : <Term name="OHLCV CSV" />} file</span><input type="file" accept={kind === "articles" ? ".jsonl,.json,.txt" : ".csv"} onChange={event => { const file = event.target.files?.[0]; if (file) { void file.text().then(text => { setContent(text); setResult(null); }); } }} /><small>Maximum 8 million characters. Files stay on your device until you import.</small></label>
+        <label className="field">Records<textarea required rows={8} value={content} onChange={event => { setContent(event.target.value); setResult(null); }} placeholder={kind === "articles" ? '{"article_id":"LIVE:LOCAL:example","source_url":"https://…","text":"…","published_at":"2020-12-30T10:00:00Z","first_seen_at":"2020-12-30T10:05:00Z"}' : "instrument_id,market_family,timestamp,available_at,open,high,low,close,volume,currency,unit,contract_id"} /><small>{kind === "articles" ? "One JSON object per line. Publication and first-seen times must include a timezone." : "CSV headers: instrument_id, market_family, timestamp, available_at, open, high, low, close, volume, currency, unit; optional contract_id."}</small></label>
+        <div className="actions"><Submit busy={action.busy}>Validate and import</Submit><p className="muted small">Good rows are kept even when others fail; every rejected row is listed with its reason.</p></div>
+      </form>
+      {kind === "articles" && <details className="fold" open={!data.articles.length}><summary>Add one article by hand</summary><form className="stack" inert={action.busy} aria-busy={action.busy} onSubmit={event => { event.preventDefault(); void importContent(JSON.stringify(article)); }}>
+        <div className="form-grid">{(["article_id", "source_url", "published_at", "first_seen_at"] as const).map(field => <label className="field" key={field}>{human(field)}<input required value={article[field]} onChange={event => setArticle({ ...article, [field]: event.target.value })} placeholder={field.includes("_at") ? "2020-12-30T10:00:00Z" : field === "article_id" && data.universe === "live" ? "LIVE:LOCAL:unique-id" : undefined} /></label>)}</div>
+        <label className="field">Original article text<textarea required rows={5} value={article.text} onChange={event => setArticle({ ...article, text: event.target.value })} /></label>
+        <div className="actions"><Submit busy={action.busy}>Save manual article</Submit></div>
+      </form></details>}
+      <ErrorMessage message={action.error} />
+    </section>
+    {result && <section className="card flow" aria-live="polite"><div className="card-head"><h2>Import report</h2><Status value={errors.length ? "partial" : "completed"} /></div>
       <p className="verdict">{errors.length ? `${errors.length} ${errors.length === 1 ? "row was" : "rows were"} rejected; ${result.added} saved.` : `${result.added} ${result.added === 1 ? "record" : "records"} saved. No rows were rejected.`}</p>
       {errors.length > 0 && <><ul className="error-list">{(allErrors ? errors : errors.slice(0, 10)).map((error, index) => <li key={index}>{rowError(error, index)}</li>)}</ul>{errors.length > 10 && <button type="button" className="text-button" onClick={() => setAllErrors(value => !value)}>{allErrors ? "Show fewer errors" : `Show all ${errors.length} errors`}</button>}</>}
-      {result.warnings.map(text => <div className="alert warning" key={text}>{text}</div>)}<JsonView value={result} title="Inspect the raw import report" />{result.added > 0 && <div className="form-actions"><Link className="button primary" href={href(kind === "articles" ? "events" : "technicals")}>{kind === "articles" ? "Investigate imported articles" : "Explore imported prices"}</Link></div>}</div></section>}</>;
+      {result.warnings.map(text => <div className="alert warning" key={text}>{text}</div>)}
+      <JsonView value={result} title="Inspect the raw import report (JSON)" />
+      {result.added > 0 && <div className="actions"><Link className="button primary" href={kind === "articles" ? href("analyse") : href("lab", { tab: "indicators" })}>{kind === "articles" ? "Analyse imported articles" : "See imported prices"}</Link></div>}
+    </section>}
+  </>;
 }
 
-// ============================== Price indicators ==============================
+// ============================== Lab › Indicators ==============================
 type TechnicalResult = { bars: Bar[]; snapshot: { history_bars: number; values: Record<string, number | null>; missing: string[]; stale: string[]; required_history: Record<string, number>; interpretation: Record<string, string> } };
-const INDICATOR_TERMS: [RegExp, string][] = [[/^sma/, "SMA 20/50/200"], [/^ema/, "EMA 20/50"], [/^rsi/, "RSI 14"], [/^macd/, "MACD"], [/^(bb|boll)/, "Bollinger bands"], [/^atr/, "ATR 14"], [/^adx/, "ADX 14"], [/vol/, "Volume"]];
-const indicatorTerm = (key: string) => INDICATOR_TERMS.find(([pattern]) => pattern.test(key))?.[1];
+type IndicatorHistory = { status: "ready"; data: History; partial: boolean } | { status: "no-range" | "mismatch" | "failed" };
+const HISTORY_START = "2000-01-01";
+const HISTORY_END = "2020-12-31";
+const HISTORY_NOTICE = {
+  "no-range": "Indicator lines are available only for sessions from 2000 through 2020.",
+  mismatch: "Historical candles differ from the cutoff snapshot. Recompute to try loading the indicator lines again.",
+  failed: "Indicator lines could not be loaded. Recompute to try again.",
+};
+/** Indicator chips control both the chart layers and their corresponding readings. */
+const INDICATOR_CHIPS = [
+  { id: "sma20", label: "SMA 20", term: "SMA 20/50/200" },
+  { id: "sma50", label: "SMA 50", term: "SMA 20/50/200" },
+  { id: "sma200", label: "SMA 200", term: "SMA 20/50/200" },
+  { id: "ema20", label: "EMA 20", term: "EMA 20/50" },
+  { id: "ema50", label: "EMA 50", term: "EMA 20/50" },
+  { id: "rsi14", label: "RSI 14", term: "RSI 14" },
+  { id: "macd", label: "MACD", term: "MACD" },
+  { id: "bollinger", label: "Bollinger", term: "Bollinger bands" },
+  { id: "atr14", label: "ATR 14", term: "ATR 14" },
+  { id: "adx14", label: "ADX 14", term: "ADX 14" },
+  { id: "volume", label: "Volume", term: "Volume" },
+];
+const chipOf = (key: string) => INDICATOR_CHIPS.find(chip => chip.id === key.split("_", 1)[0] || (chip.id === "bollinger" && key.startsWith("bollinger20_")));
 /** Just after the last saved price, so the latest bar is eligible and nothing is stale. */
 const afterLastPrice = (end: string | null | undefined) => (end ? new Date(Date.parse(end) + 6 * 3_600_000).toISOString().replace(".000Z", "Z") : new Date().toISOString());
 export function TechnicalsPanel({ api, data, href }: PanelProps) {
@@ -287,51 +469,170 @@ export function TechnicalsPanel({ api, data, href }: PanelProps) {
   const [company, setCompany] = useState(richest?.instrument_id || data.companies[0]?.instrument_id || "");
   const selected = data.companies.find(row => row.instrument_id === company);
   const [cutoff, setCutoff] = useState(data.workspace === "demo" ? afterLastPrice(richest?.end) : new Date().toISOString());
-  const [result, setResult] = useState<TechnicalResult | null>(null);
+  const [result, setResult] = useState<{ technicals: TechnicalResult; history: IndicatorHistory } | null>(null);
+  const [chips, setChips] = useState(() => INDICATOR_CHIPS.map(chip => chip.id));
   const action = useAction();
   const noBars = !selected?.bars;
-  const stale = result ? Object.keys(result.snapshot.values).filter(key => result.snapshot.stale.includes(key)) : [];
-  return <><PageHeading eyebrow="LOCAL PRICE RESEARCH" title="Price indicators" description={INTROS.technicals} />
-    <WorkspaceSummary items={[{ label: "Tracked companies", value: data.companies.length, detail: "In the selected workspace" }, { label: "Stored daily bars", value: data.companies.reduce((total, row) => total + row.bars, 0), detail: "Saved daily price history" }, { label: "Computation", value: "On demand", detail: "Uses saved observations only" }]} />
-    <section className="panel"><div className="panel-heading"><h2>Select a price series</h2><span className="pill neutral">NO MODEL REQUIRED</span></div><div className="panel-body"><form inert={action.busy} aria-busy={action.busy} onSubmit={e => { e.preventDefault(); setResult(null); void action.execute(async () => setResult(await api<TechnicalResult>("technicals", { company_id: company, decision_time: cutoff }))); }}>
-      <div className="form-grid two"><label className="field">Company<select value={company} onChange={e => { setCompany(e.target.value); setResult(null); }}>{data.companies.map(c => <option key={c.instrument_id} value={c.instrument_id}>{c.name} · {c.bars} bars</option>)}</select><small>{selected?.end ? <>Last saved price: <Time value={selected.end} /></> : "No saved prices yet."}</small></label></div>
-      <CutoffField label={<Term name="Decision cutoff">Availability cutoff</Term>} value={cutoff} onChange={value => { setCutoff(value); setResult(null); }} presets={selected?.end ? [{ label: "Use last price date", value: afterLastPrice(selected.end) }] : []} />
-      {noBars ? <div className="state-card"><strong>No saved prices for this company yet.</strong><p>Import a daily price CSV, or switch to the Synthetic demo.</p><div className="state-actions"><Link className="button secondary" href={href("imports")}>Import prices</Link></div></div> : null}
-      <div className="form-actions"><Submit busy={action.busy} disabled={noBars || !cutoff}>Compute price indicators</Submit><p><Term name="History needed / Warm-up missing">Warm-up</Term> values stay empty until enough eligible bars exist.</p></div>
-    </form></div></section><ErrorMessage message={action.error} />
-    {result && <><section className="panel"><div className="panel-heading"><h2>Saved daily prices</h2><span className="pill neutral"><Term name="Eligible bars">{result.snapshot.history_bars} eligible bars</Term></span></div><div className="panel-body">{result.bars.length ? <PriceChart bars={result.bars} /> : <Empty title="No eligible bars" description="No saved price was available at this cutoff. Move the cutoff later, or import prices." />}</div></section>
-      <section className="panel"><div className="panel-heading"><h2>Technical snapshot</h2><button className="button secondary" onClick={() => downloadJson(result, "technical-snapshot.json")}><ArrowDownToLine size={15} />Download snapshot</button></div>
-        {stale.length > 0 && selected?.end && <div className="panel-body"><div className="state-card"><strong>The latest price is older than four days before your cutoff,</strong><p>so the values are shown but marked stale. Move the cutoff closer to the last price date (<Time value={selected.end} />).</p><div className="state-actions"><button type="button" className="button secondary" onClick={() => { const next = afterLastPrice(selected.end); setCutoff(next); void action.execute(async () => setResult(await api<TechnicalResult>("technicals", { company_id: company, decision_time: next }))); }}>Use last price date</button></div></div></div>}
-        <div className="table-scroll"><table><thead><tr><th>Indicator</th><th>Value</th><th><Term name="History needed / Warm-up missing">History needed</Term></th><th><Term name="Available / Missing / Stale / Not applicable">Availability</Term></th></tr></thead><tbody>{Object.entries(result.snapshot.values).map(([key, value]) => { const term = indicatorTerm(key); return <tr key={key}><td>{term ? <Term name={term}>{human(key).toUpperCase()}</Term> : human(key).toUpperCase()}</td><td className="numeric">{format(value, 3)}</td><td>{result.snapshot.required_history[key]} bars</td><td>{value === null ? "Warm-up missing" : result.snapshot.stale.includes(key) ? "Stale" : "Available"}</td></tr>; })}</tbody></table></div><div className="panel-body"><JsonView value={result.snapshot} title="Inspect missing history, stale values and interpretation" /></div></section></>}</>;
+  const compute = (at: string) => {
+    setResult(null);
+    void action.execute(async () => {
+      const technicals = await api<TechnicalResult>("technicals", { company_id: company, decision_time: at });
+      const eligible = technicals.bars.filter(bar => bar.time >= HISTORY_START && bar.time <= HISTORY_END);
+      const start = eligible[0]?.time;
+      const end = eligible.at(-1)?.time;
+      let history: IndicatorHistory = { status: "no-range" };
+      if (start && end) {
+        const historical = await api<History>("history", { company_id: company, start_date: start, end_date: end, as_of: at }).catch(() => null);
+        if (!historical) {
+          history = { status: "failed" };
+        } else {
+          // An import can change the available candles between the two requests.
+          const sameCandles = historical.bars.length === eligible.length && historical.bars.every((bar, index) => {
+            const candle = eligible[index];
+            return bar.time === candle.time && bar.open === candle.open && bar.high === candle.high && bar.low === candle.low
+              && bar.close === candle.close && bar.volume === candle.volume && bar.available_at === candle.available_at;
+          });
+          history = sameCandles ? { status: "ready", data: historical, partial: eligible.length !== technicals.bars.length } : { status: "mismatch" };
+        }
+      }
+      setResult({ technicals, history });
+    });
+  };
+  const technicals = result?.technicals;
+  const history = result?.history;
+  const indicatorData = history?.status === "ready" ? history.data : undefined;
+  const chartSelection = useMemo(() => INDICATOR_CHIPS.filter(({ id }) => chips.includes(id) && (indicatorData || id === "volume")).map(({ id }) => id), [chips, indicatorData]);
+  const values = technicals ? Object.entries(technicals.snapshot.values) : [];
+  const stale = values.filter(([key]) => technicals?.snapshot.stale.includes(key));
+  const shown = values.filter(([key]) => { const chip = chipOf(key); return !chip || chips.includes(chip.id); });
+  const latestBar = technicals?.bars.at(-1);
+  const extraReadings = ["sma200", "ema50"].filter(id => chips.includes(id)).map(id => {
+    const point = indicatorData?.indicators[id]?.at(-1);
+    const value = point && point.time === latestBar?.time ? point.value : null;
+    return { id, value, detail: value !== null ? "At the latest eligible close" : latestBar && indicatorData?.actual_end === latestBar.time ? "Warm-up missing" : "No series at this cutoff" };
+  });
+  if (chips.includes("volume") && latestBar) extraReadings.push({ id: "volume", value: latestBar.volume, detail: "Shares traded in the latest eligible session" });
+  return <>
+    <section className="card flow">
+      <div className="card-head"><h2>Price indicators</h2><span className="muted small">From saved daily prices · no model needed</span></div>
+      <form className="stack" inert={action.busy} aria-busy={action.busy} onSubmit={event => { event.preventDefault(); compute(cutoff); }}>
+        <label className="field">Company<select value={company} onChange={event => { setCompany(event.target.value); setResult(null); }}>{data.companies.map(row => <option key={row.instrument_id} value={row.instrument_id}>{row.name} · {row.bars} days of prices</option>)}</select><small>{selected?.end ? <>Last saved price: <Time value={selected.end} /></> : "No saved prices yet."}</small></label>
+        <CutoffField label={<Term name="Decision cutoff">Prices up to</Term>} value={cutoff} onChange={value => { setCutoff(value); setResult(null); }} presets={selected?.end ? [{ label: "Use last price date", value: afterLastPrice(selected.end) }] : []} />
+        {noBars && <div className="state-card"><strong>No saved prices for this company yet.</strong><p>Import a daily price CSV, or switch to the demo data.</p><div className="actions"><Link className="button secondary" href={href("settings", { tab: "import" })}>Import prices</Link></div></div>}
+        <div className="actions"><Submit busy={action.busy} disabled={noBars || !cutoff}>Compute price indicators</Submit><p className="muted small"><Term name="History needed / Warm-up missing">Warm-up</Term> values stay empty until enough days of prices exist.</p></div>
+      </form>
+      <ErrorMessage message={action.error} />
+    </section>
+    {history && technicals && <section className="card flow">
+      <div className="card-head"><h2>{selected?.name ?? company}</h2><span className="muted small"><Term name="Eligible bars">{technicals.snapshot.history_bars} days of prices</Term></span></div>
+      <div className="chips" role="group" aria-label="Indicators to show">{INDICATOR_CHIPS.map(chip => <button key={chip.id} type="button" className="chip" aria-pressed={chips.includes(chip.id)} onClick={() => setChips(list => list.includes(chip.id) ? list.filter(id => id !== chip.id) : [...list, chip.id])}>{chip.label}</button>)}</div>
+      {technicals.bars.length ? <>
+        {history.status !== "ready" ? <p className="muted small" role="status">{HISTORY_NOTICE[history.status]}</p> : history.partial && <p className="muted small" role="status">Indicator lines use saved sessions from {history.data.actual_start} through {history.data.actual_end}. Candles and volume use all eligible sessions.</p>}
+        <PriceChart bars={technicals.bars} indicators={indicatorData?.indicators} selected={chartSelection} />
+      </> : <Empty title="No prices at this time" description="No saved price was available yet. Move the time later, or import prices." />}
+    </section>}
+    {technicals && <section className="card flow">
+      <div className="card-head"><h2>What the indicators say</h2><button type="button" className="button secondary" onClick={() => downloadJson(technicals, "technical-snapshot.json")}><ArrowDownToLine size={15} aria-hidden="true" />Download snapshot</button></div>
+      {stale.length > 0 && selected?.end && <div className="state-card"><strong>The latest price is more than four days before your chosen time,</strong><p>so the values are marked stale. Move the time closer to the last price (<Time value={selected.end} />).</p><div className="actions"><button type="button" className="button secondary" onClick={() => { const next = afterLastPrice(selected.end); setCutoff(next); compute(next); }}>Use last price date</button></div></div>}
+      <ul className="readings">{shown.map(([key, value]) => { const chip = chipOf(key); return <li key={key}>
+        <span className="reading-name">{chip ? <Term name={chip.term}>{human(key).toUpperCase()}</Term> : human(key).toUpperCase()}</span>
+        <strong className="numeric">{format(value, 3)}</strong>
+        <span className="muted small">{value === null ? "Warm-up missing" : technicals.snapshot.stale.includes(key) ? "Stale" : technicals.snapshot.interpretation[key] ?? "Available"}</span>
+      </li>; })}{extraReadings.map(({ id, value, detail }) => {
+        const chip = chipOf(id);
+        return <li key={id}><span className="reading-name"><Term name={chip?.term ?? id}>{chip?.label ?? id}</Term></span><strong className="numeric">{format(value, id === "volume" ? 0 : 3)}</strong><span className="muted small">{detail}</span></li>;
+      })}</ul>
+      {technicals.snapshot.interpretation.context && <p className="muted small">{technicals.snapshot.interpretation.context}</p>}
+      <details className="fold"><summary>All values with history needed</summary><div className="table-scroll"><table><thead><tr><th scope="col">Indicator</th><th scope="col">Value</th><th scope="col"><Term name="History needed / Warm-up missing">History needed</Term></th><th scope="col"><Term name="Available / Missing / Stale / Not applicable">Availability</Term></th></tr></thead><tbody>{values.map(([key, value]) => <tr key={key}><td>{human(key).toUpperCase()}</td><td className="numeric">{format(value, 3)}</td><td>{technicals.snapshot.required_history[key]} days</td><td>{value === null ? "Warm-up missing" : technicals.snapshot.stale.includes(key) ? "Stale" : "Available"}</td></tr>)}</tbody></table></div><JsonView value={technicals.snapshot} title="Inspect missing history, stale values and reading (JSON)" /></details>
+    </section>}
+    <HostedChart />
+  </>;
 }
 
+// ============================== Settings › Connections ==============================
 type SyncReport = { observations_added: number; articles_added: number; network_requests: number; errors: Record<string, unknown>[]; warnings: string[]; article_ids: string[]; decision_time: string; actual_start?: string | null; actual_end?: string | null };
 export function ConnectionsPanel({ api, data, refresh, href }: PanelProps) {
+  const company = useSearchParams().get("company");
   const [ids, setIds] = useState<string[]>([]);
+  const [recentIds, setRecentIds] = useState<string[]>(() =>
+    company && data.companies.some(row => row.instrument_id === company) ? [company] : []);
   const [start, setStart] = useState("2015-01-01");
   const [end, setEnd] = useState("2020-12-31");
-  const [news, setNews] = useState(false);
+  const [news, setNews] = useState(true);
   const [commodities, setCommodities] = useState(true);
   const [days, setDays] = useState(550);
   const [report, setReport] = useState<SyncReport | null>(null);
-  const [batch, setBatch] = useState<unknown>(null);
+  const [batch, setBatch] = useState<{ article_id: string; run_id: string | null; status: string; error: string | null }[] | null>(null);
   const action = useAction();
-  const canSync = data.workspace === "local" && data.universe === "live" && data.readiness.some(r => r.capability === "market_history" && r.ready);
-  const tokenMissing = data.readiness.some(r => r.capability === "market_history" && !r.configured);
+  const canSync = data.workspace === "local" && data.universe === "live" && data.readiness.some(row => row.capability === "market_history" && row.ready);
+  const tokenMissing = data.readiness.some(row => row.capability === "market_history" && !row.configured);
   const totalBars = data.companies.reduce((sum, row) => sum + row.bars, 0);
   const blocker = data.workspace === "demo" ? null : data.universe !== "live" ? "Switch to “My data – real companies” to download provider history." : tokenMissing ? "token" : null;
-  async function sync(kind: string) {
+  const latestCandle = data.companies.reduce((latest, company) => company.end && company.end > latest ? company.end : latest, "");
+  async function sync(kind: "live" | "historical") {
+    const selected = kind === "live" ? recentIds : ids;
+    if (!canSync || !selected.length || action.busy) return;
     setReport(null); setBatch(null);
-    await action.execute(async () => { setReport(await api<SyncReport>(`sync/${kind}`, { company_ids: ids, start_date: start, end_date: end, include_news: news, include_commodities: commodities, lookback_days: days })); await refresh(); });
+    await action.execute(async () => { setReport(await api<SyncReport>(`sync/${kind}`, { company_ids: selected, start_date: start, end_date: end, include_news: news, include_commodities: commodities, lookback_days: days })); await refresh(); });
   }
-  return <><PageHeading eyebrow="EXPLICIT CONNECTIONS" title="Data connections" description={INTROS.connections} />
-    {data.workspace === "demo" && <div className="state-card demo-skip"><strong>You don’t need this page for the demo.</strong><p>It’s only for connecting your own data provider and models.</p><div className="state-actions"><Link className="button secondary" href={href("overview")}>Back to Overview</Link></div></div>}
-    <WorkspaceSummary items={[{ label: "Capabilities", value: data.readiness.length, detail: "Available connection checks" }, { label: "Configured", value: data.readiness.filter(row => row.configured).length, detail: "Configuration present; connectivity unverified" }, { label: "Access control", value: "Explicit", detail: "You choose when requests are sent" }]} /><section className="panel"><div className="panel-heading"><h2>Configuration readiness</h2><span className="pill neutral">OFFLINE CHECK</span></div><div className="panel-body">{data.readiness.map(row => <div className="readiness-card" key={row.capability}><PlugZap size={18} /><div><strong>{row.name}</strong><p>{row.reason}</p></div>{row.capability === "technicals" && !totalBars ? <span className="pill neutral">No data yet</span> : <span className={`pill ${row.configured ? "green" : "neutral"}`}>{row.configured ? "Configured" : "Setup needed"}</span>}</div>)}<p className="muted footnote"><Term name="Configured / Setup needed">Configured</Term> means a setting is present. Configuration presence does not verify connectivity or entitlements. Credentials stay in the server environment; they are never entered here.</p></div></section>
-    <section className="panel"><div className="panel-heading"><h2>Download historical research data</h2><span className="pill amber">ENDS IN 2020</span></div><div className="panel-body">{blocker === "token" ? <div className="state-card"><strong>Upstox token not set.</strong><p>Add <code>UPSTOX_ANALYTICS_TOKEN</code> to the server’s <code>.env</code>, restart the API, then refresh.</p><div className="state-actions"><button type="button" className="button secondary" onClick={() => { void action.execute(refresh); }}><RefreshCw size={14} />Refresh workspace</button></div></div> : blocker ? <div className="alert warning">{blocker}</div> : null}<form inert={action.busy} aria-busy={action.busy} onSubmit={e => { e.preventDefault(); void sync("historical"); }}><fieldset style={{ border: 0, padding: 0, margin: "0 0 18px" }}><legend className="field-legend">Companies to download (benchmark included automatically)</legend><div className="indicator-select">{data.companies.map(company => <label key={company.instrument_id} className="check-label"><input type="checkbox" checked={ids.includes(company.instrument_id)} onChange={e => setIds(e.target.checked ? [...ids, company.instrument_id] : ids.filter(id => id !== company.instrument_id))} />{company.name}</label>)}</div></fieldset><div className="form-grid two"><label className="field">Requested start<input required type="date" min="2000-01-01" max={end} value={start} onChange={e => setStart(e.target.value)} /></label><label className="field">Requested end<input required type="date" min={start} max="2020-12-31" value={end} onChange={e => setEnd(e.target.value)} /></label></div><div className="form-actions"><button className="button primary" disabled={action.busy || !canSync || !ids.length}>{action.busy ? <LoaderCircle size={15} className="spin" /> : <ArrowDownToLine size={15} />}Download history ending 2020</button><p>Candles only. Server-side request budget and chunk limits apply.</p></div></form>
-      <details className="json-view"><summary>Advanced: recent event evidence and news</summary><p className="muted footnote">Recent prices support the event workflow. Post-2020 bars are excluded from historical strategy research. This action can also fetch bounded company news.</p><form inert={action.busy} aria-busy={action.busy} onSubmit={e => { e.preventDefault(); void sync("live"); }}><label className="field">Recent-history lookback (calendar days)<input type="number" required min={1} max={3650} value={days} onChange={e => setDays(Number(e.target.value))} /></label><label className="check-label"><input type="checkbox" checked={news} onChange={e => setNews(e.target.checked)} />Also import provider headline/summary news</label><label className="check-label"><input type="checkbox" checked={commodities} onChange={e => setCommodities(e.target.checked)} />Also refresh the reviewed commodity contracts (e.g. MCX crude oil)</label><button className="button secondary" disabled={action.busy || !canSync || !ids.length}><RefreshCw size={15} />Refresh selected recent evidence</button></form></details>
-    </div></section><ErrorMessage message={action.error} />{report && <section className="panel"><div className="panel-heading"><h2>Provider report</h2><button className="button secondary" onClick={() => downloadJson(report, "provider-report.json")}><ArrowDownToLine size={15} />Download report</button></div><div className="panel-body"><div className="stat-list"><div className="stat-item"><span>Added observations</span><strong>{report.observations_added}</strong></div><div className="stat-item"><span>Added articles</span><strong>{report.articles_added}</strong></div><div className="stat-item"><span>Network requests</span><strong>{report.network_requests}</strong></div></div>{report.errors.length > 0 && <div className="alert warning">{report.errors.length} provider or validation errors. Inspect the report; partial results may have been retained.</div>}<JsonView value={report} title="Inspect actual coverage, limits, warnings and errors" />{report.article_ids.length > 0 && <><hr className="section-divider" /><h3>Separate model batch</h3><p className="muted footnote">Explicitly analyse up to 10 article IDs returned by this refresh, at its completion cutoff.</p><button className="button secondary" disabled={action.busy} onClick={() => { void action.execute(async () => { setBatch(await api("analyse-news", { article_ids: report.article_ids, decision_time: report.decision_time, policy: "slm_delegate", limit: 10 })); await refresh(); }); }}><Play size={15} />Analyse latest synced news (live models)</button>{batch !== null && <JsonView value={batch} title="Inspect every batch item result" />}</>}</div></section>}</>;
+  return <>
+    <section className="card flow">
+      <div className="card-head"><h2>Connections</h2><span className="api-state"><i aria-hidden="true" />API connected</span></div>
+      {data.workspace === "demo" && <div className="state-card"><strong>You don’t need this page for the demo.</strong><p>It’s only for connecting your own data provider and models. The demo runs offline.</p><div className="actions"><Link className="button secondary" href={href("home")}>Back to Home</Link></div></div>}
+      <ul className="readiness">{data.readiness.map(row => <li key={row.capability}><div><strong>{row.name}</strong><p className="muted small">{row.reason}</p></div>{row.capability === "technicals" && !totalBars ? <span className="pill neutral">No data yet</span> : <span className={`pill ${row.configured ? "green" : "neutral"}`}>{row.configured ? "Configured" : "Setup needed"}</span>}</li>)}</ul>
+      <p className="muted small"><Term name="Configured / Setup needed">Configured</Term> means a setting is present on the server; it does not prove the service works. Keys stay in the server environment and are never shown or entered here.</p>
+    </section>
+    <section className="card flow">
+      <div className="card-head"><h2>Refresh recent prices and news</h2></div>
+      <p className="muted">Fetch completed daily candles and recent company news from Upstox. {latestCandle ? `Latest saved candle across companies: ${latestCandle}.` : "No daily candles saved yet."}</p>
+      {blocker === "token" ? <div className="state-card"><strong>Upstox token not set.</strong><p>Add <code>UPSTOX_ANALYTICS_TOKEN</code> to the server’s <code>.env</code>, restart the API, then refresh.</p><div className="actions"><button type="button" className="button secondary" onClick={() => { void action.execute(refresh); }}><RefreshCw size={14} aria-hidden="true" />Refresh workspace</button></div></div> : blocker ? <div className="alert warning">{blocker}</div> : null}
+      <form className="stack" inert={action.busy} aria-busy={action.busy} onSubmit={event => { event.preventDefault(); void sync("live"); }}>
+        <fieldset className="plain"><legend className="field-legend">Companies to refresh</legend><div className="check-grid">{data.companies.map(company => <label key={company.instrument_id} className="check-label"><input type="checkbox" checked={recentIds.includes(company.instrument_id)} onChange={event => setRecentIds(event.target.checked ? [...recentIds, company.instrument_id] : recentIds.filter(id => id !== company.instrument_id))} />{company.name}</label>)}</div></fieldset>
+        <label className="field">Recent-history lookback (calendar days)<input type="number" required min={1} max={3650} value={days} onChange={event => setDays(Number(event.target.value))} /></label>
+        <label className="check-label"><input type="checkbox" checked={news} onChange={event => setNews(event.target.checked)} />Also import provider headline/summary news</label>
+        <label className="check-label"><input type="checkbox" checked={commodities} onChange={event => setCommodities(event.target.checked)} />Also refresh the reviewed commodity contracts (e.g. MCX crude oil)</label>
+        <div className="actions"><button type="submit" className="button primary" disabled={action.busy || !canSync || !recentIds.length}><RefreshCw size={15} aria-hidden="true" />Refresh selected recent evidence</button></div>
+      </form>
+    </section>
+    <section className="card flow">
+      <div className="card-head"><h2>Download historical prices for the Lab</h2><span className="pill amber">Ends 31 Dec 2020</span></div>
+      <form className="stack" inert={action.busy} aria-busy={action.busy} onSubmit={event => { event.preventDefault(); void sync("historical"); }}>
+        <fieldset className="plain"><legend className="field-legend">Companies to download (the benchmark is included automatically)</legend><div className="check-grid">{data.companies.map(company => <label key={company.instrument_id} className="check-label"><input type="checkbox" checked={ids.includes(company.instrument_id)} onChange={event => setIds(event.target.checked ? [...ids, company.instrument_id] : ids.filter(id => id !== company.instrument_id))} />{company.name}</label>)}</div></fieldset>
+        <div className="form-grid"><label className="field">Requested start<input required type="date" min="2000-01-01" max={end} value={start} onChange={event => setStart(event.target.value)} /></label><label className="field">Requested end<input required type="date" min={start} max="2020-12-31" value={end} onChange={event => setEnd(event.target.value)} /></label></div>
+        <div className="actions"><button type="submit" className="button secondary" disabled={action.busy || !canSync || !ids.length}><ArrowDownToLine size={15} aria-hidden="true" />Download history ending 2020</button><p className="muted small">Daily candles only. Server-side request limits apply.</p></div>
+      </form>
+      <p role="status" className="muted small">{action.busy ? "Working. This may take a moment." : ""}</p>
+      <ErrorMessage message={action.error} />
+    </section>
+    {report && <section className="card flow" aria-live="polite"><div className="card-head"><h2>Provider report</h2><button type="button" className="button secondary" onClick={() => downloadJson(report, "provider-report.json")}><ArrowDownToLine size={15} aria-hidden="true" />Download report</button></div>
+      <div className="stat-grid"><StatTile label="Added price rows" value={format(report.observations_added, 0)} /><StatTile label="Added articles" value={format(report.articles_added, 0)} /><StatTile label="Network requests" value={format(report.network_requests, 0)} /></div>
+      <p className="muted">Finished <Time value={report.decision_time} />.{!report.errors.length && !report.observations_added && !report.articles_added ? " No new rows were added. Check the saved coverage before refreshing again." : ""}</p>
+      {report.errors.length > 0 && <div className="alert warning">
+        <p>{report.errors.length} provider or validation errors. The counts above show what was saved.</p>
+        {report.errors.some(error => /HTTP (401|403)\b/.test(String(error.message))) && <p>Upstox rejected the credentials or access. Check the token and its permissions, restart the API after updating it, then try again.</p>}
+        {report.errors.some(error => /HTTP 429\b/.test(String(error.message))) && <p>Upstox rate-limited the request. Wait before retrying and select fewer companies.</p>}
+        <p>Open the coverage report below for the affected instruments and request details.</p>
+      </div>}
+      <JsonView value={report} title="Inspect actual coverage, limits, warnings and errors (JSON)" />
+      {report.article_ids[0] && <div className="actions"><Link className="button secondary" href={href("analyse", { article: report.article_ids[0] })}>Open imported news</Link></div>}
+      {report.article_ids.length > 0 && <div className="explain"><div><h3>Separate model batch</h3><p className="muted small">Analyse up to 10 article IDs returned by this refresh, at its completion time.</p></div><button type="button" className="button secondary" disabled={action.busy} onClick={() => { void action.execute(async () => { setBatch(await api("analyse-news", { article_ids: report.article_ids, decision_time: report.decision_time, policy: "slm_delegate", limit: 10 })); await refresh(); }); }}><Play size={15} aria-hidden="true" />Analyse latest synced news (live models)</button></div>}
+      {batch !== null && <div className="flow">
+        <h3>News analysis results</h3>
+        {batch.length ? <ul>{batch.map(item => {
+          const article = data.articles.find(row => row.article_id === item.article_id);
+          const title = article ? storyHeadline(article) : item.article_id;
+          return <li key={item.article_id}>
+            {item.run_id ? <Link href={href("results", { tab: "saved", run: item.run_id })}>{title}</Link> : title}
+            {" · "}{human(item.status)}{item.error ? ` · ${item.error}` : ""}
+          </li>;
+        })}</ul> : <p>No articles were analysed. Refresh recent news and try again.</p>}
+        <JsonView value={batch} title="Inspect every batch item result (JSON)" />
+      </div>}
+    </section>}
+  </>;
 }
 
+// ============================== Results › Compare methods ==============================
 type PolicyRow = { mode: string; policy: string; runs: number; calls: number; failed_calls: number; input_tokens: number | null; output_tokens: number | null; usage_complete?: boolean; mean_run_latency_ms: number; assessed_runs?: number; abstentions: number; estimated_cost?: number | null; cost_currency?: string | null };
 type Matched = { mode: string; article_id: string; decision_time: string; policies: string[]; run_ids: string[]; all_three_policies?: boolean };
 type ComparisonOutcome = Outcome & { mode?: string | null; policy?: string | null; article_id?: string | null };
@@ -369,16 +670,22 @@ export function ComparisonsPanel({ api, data, refresh, href }: PanelProps) {
   const outcomes = result?.outcomes || [];
   const reload = () => action.execute(async () => { await api("outcomes", {}); await refresh(); setResult(await api<Comparisons>("comparisons")); });
   const methodName = (policy: string, mode?: string) => <><strong><Term name={policyLabel(policy)} /></strong><small className="cell-note">{policy}{mode ? ` · ${mode}` : ""}</small></>;
-  return <><PageHeading eyebrow="QUESTION YOUR ASSUMPTIONS" title="Compare research runs" description={INTROS.comparisons} />
-    <WorkspaceSummary items={[{ label: "Saved experiments", value: data.runs.length, detail: "Retained policy runs" }, { label: "Assessed cases", value: data.runs.filter(run => run.assessment).length, detail: "Saved numerical evidence" }, { label: "Recorded outcomes", value: data.outcomes.length, detail: "Evaluated separately from decisions" }]} />
-    {!data.runs.length ? <section className="panel"><Empty title="Nothing to compare yet." description={<>Analyse at least one article. “Analyse under all three methods” fills this page in one click.</>} action={<Link className="button primary" href={href("events")}>Start event research</Link>} /></section> : <>
-    <section className="panel"><div className="panel-heading"><h2>How the three methods handled the same articles</h2><FlaskConical size={20} className="muted" /></div><div className="panel-body"><p className="result-explanation">Loading reads saved runs only; it doesn’t call any model. Replay timings and tokens demonstrate the pipeline, not measured live-model savings.</p><div className="form-actions"><button className="button secondary" disabled={action.busy} onClick={() => { void action.execute(async () => setResult(await api<Comparisons>("comparisons"))); }}>{action.busy ? <LoaderCircle size={15} className="spin" /> : <FileJson size={15} />}Reload comparisons</button><button className="button secondary" disabled={action.busy} onClick={() => { void reload(); }}><CheckCircle2 size={15} />Evaluate later outcomes</button></div></div></section>
-    <ErrorMessage message={action.error} />
-    {!result && action.busy && <div className="loading-state"><LoaderCircle className="spin" size={20} /><p>Reading saved runs…</p></div>}
-    {result && <><div className="context-banner"><ShieldCheck size={20} /><p>{result.provenance}</p></div>
-      {policyRows.length > 0 && <div className="metric-grid method-calls">{POLICIES.map(policy => { const rows = policyRows.filter(row => row.policy === policy); const calls = rows.reduce((sum, row) => sum + row.calls, 0); return <div className="stat-item" key={policy}><span>{policyLabel(policy)}</span><strong><Count value={calls} format={value => format(value, 0)} /> model calls</strong><small>{rows.reduce((sum, row) => sum + row.runs, 0)} runs</small></div>; })}</div>}
-      <section className="panel"><div className="panel-heading"><h2>Method usage</h2><button className="button secondary" onClick={() => downloadJson(result, "research-comparisons.json")}><ArrowDownToLine size={15} />Download comparisons</button></div>
-        <div className="table-scroll"><table><thead><tr><th>Method</th><th>Runs</th><th><Term name="Model calls (small · large)">Model calls</Term></th><th>Failures</th><th><Term name="Input / output tokens" /></th>{showCost && <th><Term name="Estimated cost" /></th>}<th><Term name="Mean latency" /></th><th><Term name="Abstention rate">Abstentions</Term></th></tr></thead>
+  if (!data.runs.length) return <section className="card flow"><Empty title="Nothing to compare yet" description={<>Analyse at least one story. “Run all three methods and compare” (Analyse › More options) fills this page in one click.</>} action={<Link className="button primary" href={href("analyse")}>Analyse a story</Link>} /></section>;
+  return <>
+    <section className="card flow">
+      <div className="card-head"><h2>Compare methods</h2><div className="actions">
+        <button type="button" className="button secondary" disabled={action.busy} onClick={() => { void action.execute(async () => setResult(await api<Comparisons>("comparisons"))); }}>{action.busy ? <LoaderCircle size={15} className="spin" aria-hidden="true" /> : <FileJson size={15} aria-hidden="true" />}Reload comparisons</button>
+        <button type="button" className="button primary" disabled={action.busy} onClick={() => { void reload(); }}><CheckCircle2 size={15} aria-hidden="true" />Evaluate later outcomes</button>
+      </div></div>
+      <p className="muted">The same stories, run three ways of splitting work between a small and a large model. Loading reads saved runs only and never calls a model. Replay timings show the pipeline, not real model savings.</p>
+      {result && <p className="muted small">{result.provenance}</p>}
+      <ErrorMessage message={action.error} />
+    </section>
+    {!result && action.busy && <Loading text="Reading saved runs…" />}
+    {result && <>
+      {policyRows.length > 0 && <div className="stat-grid">{POLICIES.map(policy => { const rows = policyRows.filter(row => row.policy === policy); return <StatTile key={policy} label={<Term name={policyLabel(policy)} />} value={`${format(rows.reduce((sum, row) => sum + row.calls, 0), 0)} model calls`} detail={`${rows.reduce((sum, row) => sum + row.runs, 0)} runs · ${rows.reduce((sum, row) => sum + row.abstentions, 0)} abstained`} />; })}<StatTile label={<Term name="Later outcome">Later outcomes</Term>} value={format(outcomes.length, 0)} detail="Checked after the decision" /></div>}
+      <section className="card flow"><div className="card-head"><h2>Method usage</h2><button type="button" className="button secondary" onClick={() => downloadJson(result, "research-comparisons.json")}><ArrowDownToLine size={15} aria-hidden="true" />Download comparisons</button></div>
+        <div className="table-scroll"><table><thead><tr><th scope="col">Method</th><th scope="col">Runs</th><th scope="col"><Term name="Model calls (small · large)">Model calls</Term></th><th scope="col">Failures</th><th scope="col"><Term name="Input / output tokens" /></th>{showCost && <th scope="col"><Term name="Estimated cost" /></th>}<th scope="col"><Term name="Mean latency" /></th><th scope="col"><Term name="Abstention rate">Abstentions</Term></th></tr></thead>
           <tbody>{policyRows.map(row => { const tier = tiers(row); return <tr key={`${row.mode}:${row.policy}`}>
             <td>{methodName(row.policy, row.mode)}</td>
             <td className="numeric">{row.runs}</td>
@@ -389,18 +696,19 @@ export function ComparisonsPanel({ api, data, refresh, href }: PanelProps) {
             <td className="numeric">{format(row.mean_run_latency_ms)} ms</td>
             <td className="numeric">{row.abstentions}</td>
           </tr>; })}</tbody></table></div>
-        <div className="panel-body"><p className="muted footnote">Model calls splits filter and extraction calls by recorded model tier.{showCost && " Estimated cost uses configured per-1k token prices. It appears only for live groups with complete token usage."} Replay latency measures local pipeline overhead, not model speed.</p></div></section>
-      {matched.length > 0 && <section className="panel"><div className="panel-heading"><h2>Same article, different methods</h2><span className="pill neutral">{matched.length} MATCHED {matched.length === 1 ? "ARTICLE" : "ARTICLES"}</span></div>
-        <div className="table-scroll"><table className="fit-table"><thead><tr><th>Article · cutoff</th>{POLICIES.map(policy => <th key={policy}><Term name={policyLabel(policy)} /></th>)}</tr></thead>
-          <tbody>{matched.map(group => <tr key={`${group.mode}:${group.article_id}:${group.decision_time}`}><td><strong>{group.article_id}</strong><small className="cell-note"><Time value={group.decision_time} /> · {group.mode}</small></td>{POLICIES.map(policy => { const run = group.run_ids.map(id => runsById.get(id)).find(item => item?.policy === policy); return <td key={policy}>{run ? <><strong>{run.assessment ? human(run.assessment.direction) : human(run.status)}</strong><small className="cell-note">score {signedScore(run.assessment?.evidence_score)} · coverage {wholePercent(run.assessment?.coverage)}</small></> : <span className="muted">Not run</span>}</td>; })}</tr>)}</tbody></table></div></section>}
-      {agreement && <section className="panel"><div className="panel-heading"><h2>Extraction agreement with hand labels</h2><span className="pill amber"><Term name="Synthetic sanity check">SYNTHETIC SANITY CHECK</Term></span></div><div className="panel-body"><p className="result-explanation">{agreement.label || "Synthetic sanity check on authored articles, not a benchmark."}</p></div>
-        <div className="table-scroll"><table className="fit-table"><thead><tr><th>Method</th><th>Runs</th><th><Term name="Filter recall" /></th><th><Term name="Filter precision" /></th><th><Term name="Uncertain → escalated" /></th><th><Term name="Event type / Company / Commodity (accuracy)">Event type</Term></th><th><Term name="Event type / Company / Commodity (accuracy)">Company</Term></th><th><Term name="Event type / Company / Commodity (accuracy)">Commodity</Term></th><th><Term name="Validated spans" /></th><th><Term name="Abstention rate" /></th></tr></thead>
+        <p className="muted small">Model calls splits filter and extraction calls by recorded model size.{showCost && " Estimated cost uses configured per-1k token prices and appears only for live groups with complete token counts."} Replay latency measures the app, not model speed.</p></section>
+      {outcomes.length > 0 && <section className="card flow"><div className="card-head"><h2><Term name="Later outcome">Later outcomes</Term></h2><span className="muted small">Checked after the decision</span></div>
+        <div className="table-scroll"><table className="fit-table"><thead><tr><th scope="col">Article</th><th scope="col">Method</th><th scope="col">Status</th><th scope="col"><Term name="Evidence label" /></th><th scope="col"><Term name="Outcome label" /></th><th scope="col"><Term name="Gross / Net return">Net return</Term></th><th scope="col"><Term name="Benchmark return (outcome)">Benchmark</Term></th><th scope="col"><Term name="Excess return (outcome)">Excess return</Term></th></tr></thead><tbody>{outcomes.slice().sort((a, b) => order(a.policy ?? "") - order(b.policy ?? "")).map(row => { const run = runsById.get(row.run_id); return <tr key={row.run_id}><td><strong>{row.article_id || "—"}</strong><small className="cell-note">run {row.run_id.slice(0, 8)}</small></td><td>{row.policy ? policyLabel(row.policy) : "—"}</td><td><Status value={row.status} /></td><td>{run ? <VerdictPill verdict={verdictOf(run)} /> : "—"}</td><td>{row.label ? human(row.label) : "—"}</td><td className="numeric">{signedPercent(row.net_return)}</td><td className="numeric">{signedPercent(row.benchmark_return)}</td><td className="numeric">{signedPercent(row.excess_return)}</td></tr>; })}</tbody></table></div>
+        <p className="muted small">Next session open → 5th session close, after round-trip costs. The evidence label describes the decision; the outcome label measures what holding the stock did next. {data.workspace === "demo" ? "Synthetic test prices: these show how checking works, not real-market performance." : "Outcomes never change the saved verdict."}</p></section>}
+      {matched.length > 0 && <details className="card fold"><summary>Same article, different methods ({matched.length} matched {matched.length === 1 ? "article" : "articles"})</summary>
+        <div className="table-scroll"><table className="fit-table"><thead><tr><th scope="col">Article · cutoff</th>{POLICIES.map(policy => <th scope="col" key={policy}><Term name={policyLabel(policy)} /></th>)}</tr></thead>
+          <tbody>{matched.map(group => <tr key={`${group.mode}:${group.article_id}:${group.decision_time}`}><td><strong>{group.article_id}</strong><small className="cell-note"><Time value={group.decision_time} /> · {group.mode}</small></td>{POLICIES.map(policy => { const run = group.run_ids.map(id => runsById.get(id)).find(item => item?.policy === policy); return <td key={policy}>{run ? <><VerdictPill verdict={verdictOf(run)} /><small className="cell-note">score {signedScore(run.assessment?.evidence_score)} · coverage {wholePercent(run.assessment?.coverage)}</small></> : <span className="muted">Not run</span>}</td>; })}</tr>)}</tbody></table></div></details>}
+      {agreement && <details className="card fold"><summary>Agreement with hand labels · <Term name="Synthetic sanity check">synthetic sanity check</Term></summary>
+        <p className="muted">{agreement.label || "Synthetic sanity check on authored articles, not a benchmark."}</p>
+        <div className="table-scroll"><table className="fit-table"><thead><tr><th scope="col">Method</th><th scope="col">Runs</th><th scope="col"><Term name="Filter recall" /></th><th scope="col"><Term name="Filter precision" /></th><th scope="col"><Term name="Uncertain → escalated" /></th><th scope="col"><Term name="Event type / Company / Commodity (accuracy)">Event type</Term></th><th scope="col"><Term name="Event type / Company / Commodity (accuracy)">Company</Term></th><th scope="col"><Term name="Event type / Company / Commodity (accuracy)">Commodity</Term></th><th scope="col"><Term name="Validated spans" /></th><th scope="col"><Term name="Abstention rate" /></th></tr></thead>
           <tbody>{agreementRows.map(row => <tr key={`${row.mode}:${row.policy}`}><td>{methodName(row.policy, row.mode)}</td><td className="numeric">{row.runs}</td><td className="numeric">{rate(row.filter_recall)}</td><td className="numeric">{rate(row.filter_precision)}</td><td className="numeric">{rate(row.uncertain_rate)}</td><td className="numeric">{rate(row.field_accuracy?.event_type)}</td><td className="numeric">{rate(row.field_accuracy?.company_id)}</td><td className="numeric">{rate(row.field_accuracy?.commodity_id)}</td><td className="numeric">{rate(row.validation_status_rates?.validated)}</td><td className="numeric">{rate(row.abstention_rate)}</td></tr>)}</tbody></table></div>
-        <div className="panel-body"><p className="muted footnote">Event type, company and commodity columns are field accuracy on saved extractions. {agreement.unlabelled_runs ? `${agreement.unlabelled_runs} saved runs have no hand label and are counted, not scored.` : ""}</p>{agreement.notes?.length ? <ul className="summary-list footnote">{agreement.notes.map(note => <li key={note}>{note}</li>)}</ul> : null}</div></section>}
-      {outcomes.length > 0 && <section className="panel"><div className="panel-heading"><h2><Term name="Later outcome">Later outcomes</Term></h2><span className="pill neutral">EVALUATED AFTER THE DECISION</span></div>
-        <div className="table-scroll"><table className="fit-table"><thead><tr><th>Article</th><th>Method</th><th>Status</th><th><Term name="Evidence label" /></th><th><Term name="Outcome label" /></th><th><Term name="Gross / Net return">Net return</Term></th><th><Term name="Benchmark return (outcome)">Benchmark</Term></th><th><Term name="Excess return (outcome)">Excess return</Term></th></tr></thead><tbody>{outcomes.slice().sort((a, b) => order(a.policy ?? "") - order(b.policy ?? "")).map(row => { const run = runsById.get(row.run_id); return <tr key={row.run_id}><td><strong>{row.article_id || "—"}</strong><small className="cell-note">run {row.run_id.slice(0, 8)}</small></td><td>{row.policy ? policyLabel(row.policy) : "—"}</td><td><Status value={row.status} /></td><td>{run?.assessment ? human(run.assessment.direction) : "—"}</td><td>{row.label ? human(row.label) : "—"}</td><td className="numeric">{signedPercent(row.net_return)}</td><td className="numeric">{signedPercent(row.benchmark_return)}</td><td className="numeric">{signedPercent(row.excess_return)}</td></tr>; })}</tbody></table></div>
-        <div className="panel-body"><p className="muted footnote">Next session open → 5th session close, net of round-trip costs. The evidence label describes the decision; the outcome label measures what holding the stock did next. {data.workspace === "demo" ? "Synthetic fixture prices: these outcomes show how evaluation works. They are not real-market performance." : "Outcomes never modify the saved decision."}</p></div></section>}
-      <section className="panel"><div className="panel-body"><JsonView value={result} title="Inspect matched cohorts, run manifest, ablations and later outcomes" /></div></section>
-    </>}</>}
+        <p className="muted small">Event type, company and commodity columns are field accuracy on saved extractions. {agreement.unlabelled_runs ? `${agreement.unlabelled_runs} saved runs have no hand label and are counted, not scored.` : ""}</p>{agreement.notes?.length ? <ul className="summary-list">{agreement.notes.map(note => <li key={note}>{note}</li>)}</ul> : null}</details>}
+      <details className="card fold"><summary>Matched cohorts, run manifest and ablations (JSON)</summary><pre className="json">{JSON.stringify(result, null, 2)}</pre></details>
+    </>}
   </>;
 }

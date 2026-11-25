@@ -1,7 +1,7 @@
 // Shared TypeScript types for API responses (Workspace, Run, Outcome, …) plus small formatting helpers.
 export type Scope = { workspace: "local" | "demo"; universe: "live" | "demo" };
 export type Company = {
-  instrument_id: string; name: string; sector?: string; trading_symbol?: string;
+  instrument_id: string; name: string; sector?: string; trading_symbol?: string; aliases?: string[]; benchmark_id?: string;
   bars: number; research_bars: number; start: string | null; end: string | null; latest_close: number | null;
 };
 export type Article = {
@@ -14,10 +14,16 @@ export type Run = {
   decision_time: string; created_at: string; error: string | null; latency_ms: number;
   parent_run_id?: string | null;
   plain_summary?: string | null; plain_reasons?: string[]; score_formula?: string | null;
-  extraction: { company_id: string | null; event_type: string; direction: string; source_spans: string[]; validation_status: string } | null;
-  assessment: { direction: string; evidence_score: number | null; coverage: number; explanation: string; conflicts: string[]; abstention_reasons: string[]; inputs: Record<string, unknown> } | null;
+  extraction: { company_id: string | null; commodity_id?: string | null; event_type: string; direction: string; source_spans: string[]; validation_status: string } | null;
+  assessment: { direction: string; evidence_label?: string; evidence_score: number | null; coverage: number; explanation: string; conflicts: string[]; abstention_reasons: string[]; inputs: AssessmentInputs } | null;
   features: { values: Record<string, number | null>; missing: string[]; stale: string[]; observation_ids: string[] } | null;
   calls: { task: string; model: string; provider: string; status: string; input_tokens: number | null; output_tokens: number | null; latency_ms: number; error: string | null; mode: string }[];
+};
+/** The parts of assessment.inputs the verdict card reads; everything else stays available in the JSON view. */
+export type AssessmentInputs = Record<string, unknown> & {
+  components?: Record<string, number | null>; weights?: Record<string, number>;
+  exposure?: { status?: string; rule?: { commodity_id?: string; direction?: number; relationship?: string } | null } | null;
+  rules?: { threshold?: number; minimum_coverage?: number } | null;
 };
 export type Outcome = {
   run_id: string; status: string; reason: string; label?: string | null;
@@ -63,6 +69,8 @@ export function sourceTitle(text: string, length = 125) {
   const line = text.replace(SYNTHETIC_PREFIX, "").split("\n")[0];
   return { synthetic, title: line.length > length ? `${line.slice(0, length - 1)}…` : line };
 }
+/** The full article text without the synthetic marker (shown as its own label). */
+export const sourceBody = (text: string) => text.replace(SYNTHETIC_PREFIX, "").trim();
 /** One label set for the three execution policies, used everywhere (UX_AUDIT §3.3). */
 export const POLICY_ORDER = ["llm_only", "slm_filter", "slm_delegate"] as const;
 const POLICY_LABELS: Record<string, string> = {

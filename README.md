@@ -26,7 +26,9 @@ npm.cmd --prefix web install
 npm.cmd run dev
 ```
 
-Open http://127.0.0.1:3000 and click **Try synthetic demo**. It works fully offline, with no keys or model server.
+Open http://127.0.0.1:3000 and click **Explore demo**. It works offline with bundled evidence and recorded model responses.
+
+For a final-year demonstration, open a demo story, run the recorded replay, and inspect the verdict and its source evidence in **Results**. Use the same decision cutoff when comparing methods.
 
 Offline demo from the command line instead:
 
@@ -35,8 +37,9 @@ Offline demo from the command line instead:
 .\.venv\Scripts\python.exe -m pytest -q        # run the test suite
 ```
 
-Using real data or live models (Upstox token, Ollama or an OpenAI-compatible server) is optional. See
-[docs/LIVE_SETUP.md](docs/LIVE_SETUP.md).
+To use real market data, choose **Connect real data** from Home. The Upstox integration imports completed daily candles and recent company news on demand. Configure the read-only token before refreshing. Article analysis with configured models has its own setup. See [the real-data setup guide](docs/LIVE_SETUP.md).
+
+Open **Portfolio** to import a holdings CSV or connect Upstox, then review saved company evidence. The demo works from the bundled CSV. See the [Portfolio setup](docs/PORTFOLIO_SPRINT_HANDOFF.md#portfolio-assistant-and-broker-setup) for the broker connection and Chrome shortcut.
 
 ## How it works (catalyst to confirmation)
 

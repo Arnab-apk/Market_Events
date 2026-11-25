@@ -12,7 +12,7 @@ from uuid import uuid4
 import requests
 from pydantic import BaseModel
 
-from .config import Settings
+from .config import SARVAM_BASE_URL, Settings
 from .schemas import Article, ModelCall
 
 
@@ -41,31 +41,38 @@ class ModelClient:
     def ask(
         self,
         task: str,
-        article: Article,
+        article: Article | None,
         schema: type[BaseModel],
         role: str = "llm",
         context: dict | None = None,
     ) -> BaseModel:
         """Run one task and return a validated ``schema`` instance.
 
-        The prompt file, article and JSON schema form the request; each attempt is
-        recorded in ``self.calls``. Replay mode never contacts a model.
+        The prompt file, evidence payload and JSON schema form the request. Each
+        attempt is recorded in ``self.calls``. Replay mode never contacts a model.
         """
         model = getattr(self.settings, role)
         prompt_name = {
             "filter": "filter_event",
             "extraction": "extract_event",
             "explanation": "explain_assessment",
+            "portfolio_review": "portfolio_review",
         }[task]
         prompt = (self.settings.root / "prompts" / f"{prompt_name}.md").read_text(encoding="utf-8")
         prompt_version = hashlib.sha256(prompt.encode()).hexdigest()[:16]
-        payload = {
-            "article_id": article.article_id,
-            "published_at": article.published_at.isoformat(),
-            "source_version": article.source_version,
-            "text": article.text,
-            "context": context or {},
-        }
+        if article is None and (task != "portfolio_review" or self.settings.mode != "live"):
+            raise ModelError("Portfolio review requires live mode and saved evidence")
+        payload = (
+            {"context": context or {}}
+            if article is None
+            else {
+                "article_id": article.article_id,
+                "published_at": article.published_at.isoformat(),
+                "source_version": article.source_version,
+                "text": article.text,
+                "context": context or {},
+            }
+        )
         messages = [
             {
                 "role": "system",
@@ -106,7 +113,7 @@ class ModelClient:
                 else:
                     if not model.model:
                         raise ModelError(f"Set {role.upper()}_MODEL before using live mode")
-                    raw, usage, actual_model = self._live(model, messages)
+                    raw, usage, actual_model = self._live(model, messages, schema)
                     trace.input_tokens, trace.output_tokens = usage
                     trace.model = actual_model
                     if actual_model != model.model:
@@ -156,7 +163,7 @@ class ModelClient:
             raise ModelError("Replay source does not match the recorded fixture")
         return item[task]
 
-    def _live(self, model, messages):
+    def _live(self, model, messages, schema: type[BaseModel]):
         headers = {"Content-Type": "application/json"}
         if model.api_key.get_secret_value():
             headers["Authorization"] = f"Bearer {model.api_key.get_secret_value()}"
@@ -179,6 +186,17 @@ class ModelClient:
                 "response_format": {"type": "json_object"},
                 "max_tokens": model.max_output_tokens,
             }
+            if model.base_url == SARVAM_BASE_URL:
+                # Sarvam's reasoning tokens count against the structured reply's output budget.
+                payload["reasoning_effort"] = None
+                payload["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": schema.__name__,
+                        "schema": schema.model_json_schema(),
+                        "strict": True,
+                    },
+                }
         response = self.session.post(
             endpoint,
             json=payload,

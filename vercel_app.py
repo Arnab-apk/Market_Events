@@ -1,9 +1,9 @@
 """Vercel entry point for the Python API (the `api` service in vercel.json).
 
 Vercel's filesystem is read-only except /tmp, so the bundled synthetic demo database is copied to
-/tmp on a cold start and both workspaces write there. Changes last only as long as the instance:
-a new instance starts again from the committed demo database. The hosted copy always replays
-recorded model outputs; it never contacts a market data provider or a live model.
+/tmp on a cold start and both workspaces write there. Changes last only as long as the instance.
+The demo always replays recorded output. The live workspace uses the configured provider secrets
+and model mode when the user requests a sync or analysis.
 """
 
 import os

@@ -54,7 +54,7 @@ def nse_master():
             "segment": "NSE_INDEX",
             "exchange": "NSE",
             "instrument_type": "INDEX",
-            "trading_symbol": "Nifty 50",
+            "trading_symbol": "NIFTY",
             "name": "Nifty 50",
             "instrument_key": INDEX_KEY,
         }

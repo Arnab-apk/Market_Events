@@ -17,7 +17,14 @@ from fastapi.testclient import TestClient
 import market_events.api as api_module
 from market_events.config import LiveDataSettings, Settings
 from market_events.model_client import ModelClient
-from market_events.schemas import AnalysisRun, Article, EventOutcome, MarketObservation
+from market_events.schemas import (
+    AnalysisRun,
+    Article,
+    Assessment,
+    EventExtraction,
+    EventOutcome,
+    MarketObservation,
+)
 from market_events.storage import Storage
 
 LIVE = "LIVE:NSE:TEST"
@@ -179,6 +186,57 @@ def populated(web):
             store.save_run(run(identifier, source))
             store.save_outcome(EventOutcome(run_id=identifier, status="pending", reason=identifier))
     return web
+
+
+def test_portfolio_review_validates_model_case_ids_and_leaves_ledger_unchanged(web, monkeypatch):
+    web.settings.llm.model = "fixture-model"
+    source = "LIVE:NEWS:portfolio"
+    saved = run("holding-case", source)
+    saved.event_id = "holding-event"
+    saved.extraction = EventExtraction(
+        event_id=saved.event_id, event_type="uncertain", company_id=LIVE
+    )
+    saved.assessment = Assessment(
+        direction="abstain",
+        coverage=0.25,
+        rules_version="test",
+        explanation="Insufficient evidence",
+    )
+    with Storage(web.database) as ledger:
+        ledger.add_articles([article(source)])
+        ledger.save_run(saved)
+    before = snapshot(web.database.parent)
+    picks = [saved.run_id]
+
+    def choose(self, task, article_input, schema, *, context):
+        assert task == "portfolio_review" and article_input is None
+        assert self.settings.mode == "live" and self.settings.max_requests == 1
+        assert context["topic"] == "gaps"
+        assert context["cases"] == [
+            {
+                "run_id": saved.run_id,
+                "decision_time": CUTOFF.isoformat(),
+                "direction": "abstain",
+                "coverage": 0.25,
+                "conflicts": 0,
+                "abstention_reasons": 0,
+                "missing_inputs": 0,
+                "stale_inputs": 0,
+            }
+        ]
+        return schema(run_ids=picks)
+
+    monkeypatch.setattr(ModelClient, "ask", choose)
+    payload = {"topic": "gaps", "run_ids": [saved.run_id]}
+    result = web.client.post("/api/portfolio-review", json=payload)
+    assert result.status_code == 200
+    assert result.json() == {"run_ids": [saved.run_id]}
+    picks[:] = ["invented-id"]
+    assert web.client.post("/api/portfolio-review", json=payload).status_code >= 400
+    assert web.client.post("/api/portfolio-review?workspace=demo", json=payload).status_code == 422
+    missing = web.client.post("/api/portfolio-review", json={**payload, "run_ids": ["missing"]})
+    assert missing.status_code == 404
+    assert snapshot(web.database.parent) == before
 
 
 def snapshot(root):

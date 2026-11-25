@@ -42,6 +42,8 @@ LLM_MODEL=your_installed_extraction_model
 
 The token loader prefers `UPSTOX_ANALYTICS_TOKEN`; `UPSTOX_ACCESS_TOKEN` is a lower-priority alias. Keep only the credential you intend to use. The existing model adapters also support an OpenAI-compatible endpoint through their own provider/base-URL/model/API-key settings.
 
+For hosted Sarvam analysis, set `SARVAM_API_KEY` and `MARKET_EVENTS_MODE=live` in Vercel. The key configures `sarvam-105b-conversations` for filtering and `sarvam-105b` for extraction and portfolio review. The app sends live analysis requests to the Sarvam Chat Completions API. [Sarvam Chat Completion API](https://docs.sarvam.ai/api/token-factory/chat-completions)
+
 **Restart Streamlit after editing `.env`.** The settings loader uses `load_dotenv(override=False)`, so already loaded process-environment values deliberately take precedence. Saving a replacement token to the file alone may not refresh the running process. Shell-provided environment values also take precedence over `.env`.
 
 ## 3. Start the app
@@ -63,6 +65,25 @@ The workflow separates three actions:
 | Analyse selected synced news | Explicitly invokes configured live models and saves event analyses |
 
 Opening a page, reading the universe metadata or changing filters does not trigger a provider fetch or model inference.
+
+### Run the live workspace on Vercel
+
+1. Enable **Vercel Authentication → All Deployments** on the project so the live workspace and its provider quota are available only to people with deployment access. [Vercel Authentication](https://vercel.com/docs/deployment-protection/methods-to-protect-deployments/vercel-authentication)
+2. In **Upstox Developer Apps → My Apps**, choose **App** to create an app. Enter an app name and register `https://final-yr-proj.vercel.app/api/portfolio/upstox` as the redirect URL. Keep the optional postback and webhook fields blank. Review Upstox's terms and finish the creation in Upstox. [Upstox Developer Apps](https://account.upstox.com/developer/apps)
+3. In the created app's details, copy the **API Key** and **API Secret** into Vercel's **Production** environment. Add the separate Analytics Token and Sarvam key there too. Mark the provider credentials as sensitive. [Vercel environment variables](https://vercel.com/docs/environment-variables)
+
+   | Variable | Value |
+   | --- | --- |
+   | `UPSTOX_CLIENT_ID` | Upstox app API Key |
+   | `UPSTOX_CLIENT_SECRET` | Upstox app API Secret |
+   | `UPSTOX_REDIRECT_URI` | `https://final-yr-proj.vercel.app/api/portfolio/upstox` |
+   | `UPSTOX_ANALYTICS_TOKEN` | Upstox Analytics Token for daily prices and news |
+   | `SARVAM_API_KEY` | Sarvam API subscription key |
+   | `MARKET_EVENTS_MODE` | `live` |
+
+4. Redeploy the production build and open the registered domain while signed into Vercel. In **My data – real companies**, use **Settings → Connections** to sync and analyse a story. Use **Portfolio → Connect Upstox**, sign in on Upstox, and select **Preview Upstox holdings** promptly to exchange the one-time authorization code. The OAuth import stores confirmed holdings in the current browser tab. [Upstox OAuth authentication](https://upstox.com/developer/api-documentation/authentication/)
+
+The deployed research database currently uses Vercel's temporary filesystem. Live data and assessments can reset when a request reaches a new instance. [Vercel Functions filesystem support](https://vercel.com/docs/functions/runtimes#file-system-support)
 
 ## 4. First real-data run
 

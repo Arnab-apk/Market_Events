@@ -7,17 +7,22 @@ Project: *A Heterogeneous Multi-Agent Framework for Financial Event Detection an
 The presentation uses the Next.js dashboard (`npm.cmd run dev`, http://127.0.0.1:3000). See
 [the slides](presentation/SLIDES.md), [the timed demo script with offline fallbacks](presentation/DEMO_SCRIPT.md),
 [27 viva answers](presentation/VIVA_QA.md) and [the architecture diagram](presentation/ARCHITECTURE_DIAGRAM.md).
-The Streamlit walkthrough below remains the fallback path and uses the same engine. In Next.js, follow the 7-step
-**demo tour** on the Overview page (step 1's button is **Load synthetic demo**; the heading button is
-**Load synthetic demo (replay)**). Start from a fresh `data/web_demo.sqlite` as described in the demo script's
-"Before you present" checklist. In Streamlit, the button is **Load synthetic demo (replay)**.
+In Next.js, choose **Demo data (offline)** and open **Home**. Use **Start the tour →** in **New here?**
+or **Load synthetic demo (replay)** beside the **Overview** heading. On **Analyse**, use
+**More options › Run all three methods and compare**. The Berger Paints story displays **Mixed**,
+with a signed evidence score of +0.04 and the research direction `neutral`. Use **Open in Results**
+to reach **Saved runs** for the audit and later outcome. Then open **Results › Compare methods** and
+**Lab › Backtest**. **Settings › Appearance** controls the projector theme. The timed script's
+preparation checklist covers starting with a fresh demo database. The Streamlit walkthrough below
+uses the same engine as a fallback.
 
 ### Outcome definition (say this explicitly)
 
-The later outcome is a **market-adjusted return with beta implicitly 1**: the equity's gross return from
-the first session whose 09:15 IST open is after the decision cutoff to the fifth observed session's
-close (entry counts as session one), minus the same-dates benchmark return. A 10 bps total round-trip
-cost gives the net figure (`outcomes.evaluate_outcome`). It measures **post-cutoff drift**. The evidence
+The later outcome measures **post-cutoff drift**. The gross stock return runs from the first session
+whose 09:15 IST open is after the decision cutoff to the fifth observed session's close (entry counts
+as session one). **Net return** deducts 10 bps of round-trip costs. **Excess return (outcome)** is the
+market-adjusted figure with beta implicitly 1. It subtracts the same-dates benchmark return from
+the gross stock return (`outcomes.evaluate_outcome`). The evidence
 score, by contrast, uses the **reaction-day** excess return already observable at the cutoff
 (`market_features.py`). Score and outcome therefore describe different windows, and comparing them is
 not circular. The outcome has no estimation window, fitted beta, cross-event aggregation or test

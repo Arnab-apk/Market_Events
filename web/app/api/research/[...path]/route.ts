@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 const reads = new Set(["health", "workspace", "comparisons"]);
 const writes = new Set([
   "demo", "import", "analyse", "technicals", "history", "backtest", "monte-carlo",
-  "outcomes", "analyse-news",
+  "outcomes", "analyse-news", "portfolio-review",
 ]);
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {

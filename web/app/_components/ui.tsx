@@ -1,21 +1,15 @@
 "use client";
 
-// Shared UI helpers: <Term> tooltips, <Count> (React Bits CountUp that always lands on the exact value),
-// <CutoffField> (date + time + timezone instead of raw ISO text), the glossary drawer, time/number
+// Shared UI helpers: <Term> tooltips, <Count> (a plain formatted number), <CutoffField> (date + time +
+// timezone instead of raw ISO text), the searchable glossary list (Settings › Glossary), time/number
 // formatting and plain-English error messages. No API calls.
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { BookOpen, Search, X } from "lucide-react";
-import CountUp from "./react-bits/CountUp";
+import { useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { Search } from "lucide-react";
 import { useReducedMotion } from "./use-reduced-motion";
 import { GLOSSARY, GLOSSARY_ENTRIES, GLOSSARY_GROUPS } from "./glossary";
 
-/** True when ambient motion should stop: the "Effects" toggle is off or the OS asks for reduced motion. */
-export const EffectsPaused = createContext(false);
-export function useMotionOff() {
-  const paused = useContext(EffectsPaused);
-  const reduced = useReducedMotion();
-  return paused || reduced;
-}
+/** True when the operating system asks for reduced motion. */
+export const useMotionOff = useReducedMotion;
 
 // ---------- formatting ----------
 const IST = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" });
@@ -67,12 +61,10 @@ export function Term({ name, children, tip }: { name: string; children?: ReactNo
 }
 
 // ---------- numbers ----------
-/** React Bits CountUp for headline numbers. Always ends on exactly format(value); static when motion is off. */
+/** A headline number, formatted; "—" when missing. (Kept for callers; no animation.) */
 export function Count({ value, format }: { value: number | null | undefined; format: (value: number) => string }) {
-  const motionOff = useMotionOff();
   if (value == null || !Number.isFinite(value)) return <>—</>;
-  if (motionOff) return <>{format(value)}</>;
-  return <CountUp key={value} to={value} from={0} duration={0.4} trigger="view" formatter={format} />;
+  return <>{format(value)}</>;
 }
 
 // ---------- cutoff field ----------
@@ -118,25 +110,17 @@ export function CutoffField({ label, value, onChange, presets = [], hint }: {
   </fieldset>;
 }
 
-// ---------- glossary drawer ----------
-export function GlossaryButton({ className = "icon-button", label = "Glossary" }: { className?: string; label?: string }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const [query, setQuery] = useState("");
-  const matches = useMemo(() => GLOSSARY_ENTRIES.filter(entry => `${entry.term} ${entry.text}`.toLowerCase().includes(query.toLowerCase())), [query]);
-  useEffect(() => {
-    const dialog = ref.current;
-    const close = (event: MouseEvent) => { if (event.target === dialog) dialog?.close(); };
-    dialog?.addEventListener("click", close);
-    return () => dialog?.removeEventListener("click", close);
-  }, []);
-  return <>
-    <button type="button" className={className} onClick={() => ref.current?.showModal()} title="What do these terms mean?"><BookOpen size={15} aria-hidden="true" /><span>{label}</span></button>
-    <dialog ref={ref} className="glossary-drawer" aria-labelledby="glossary-title">
-      <div className="glossary-head"><h2 id="glossary-title">Glossary</h2><button type="button" className="icon-button" aria-label="Close glossary" onClick={() => ref.current?.close()}><X size={16} /></button></div>
-      <p className="glossary-intro">Every number and label in this workspace, in plain English. Underlined terms on each page show the same text on hover or focus.</p>
-      <label className="glossary-search"><Search size={14} aria-hidden="true" /><span className="sr-only">Search the glossary</span><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search terms…" /></label>
-      {GLOSSARY_GROUPS.map(group => { const list = matches.filter(entry => entry.group === group); return list.length ? <section key={group}><h3>{group}</h3><dl>{list.map(entry => <div key={entry.term}><dt>{entry.term}</dt><dd>{entry.text}</dd></div>)}</dl></section> : null; })}
-      {!matches.length && <p className="muted">No terms match “{query}”.</p>}
-    </dialog>
-  </>;
+// ---------- glossary list ----------
+/** Every glossary term, grouped and searchable. `initial` pre-fills the search (deep links from the banner). */
+export function GlossaryList({ initial = "" }: { initial?: string }) {
+  const [query, setQuery] = useState(initial);
+  const matches = useMemo(() => GLOSSARY_ENTRIES.filter(entry => `${entry.term} ${entry.text}`.toLowerCase().includes(query.trim().toLowerCase())), [query]);
+  return <div className="glossary">
+    <label className="search-field"><Search size={16} aria-hidden="true" /><span className="sr-only">Search the glossary</span><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search terms…" /></label>
+    {GLOSSARY_GROUPS.map(group => {
+      const list = matches.filter(entry => entry.group === group);
+      return list.length ? <section key={group}><h3>{group}</h3><dl>{list.map(entry => <div key={entry.term}><dt>{entry.term}</dt><dd>{entry.text}</dd></div>)}</dl></section> : null;
+    })}
+    {!matches.length && <p className="muted">No terms match “{query}”.</p>}
+  </div>;
 }
