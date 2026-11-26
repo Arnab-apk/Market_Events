@@ -238,7 +238,7 @@ export default function PortfolioPanel({ api, data, refresh, scope, href, demoHr
     </section>}
 
     {snapshot ? <>
-      {live && <PaperLive key={snapshot.importedAt} snapshot={snapshot} api={api} />}
+      {live && <PaperLive snapshot={snapshot} api={api} />}
       <Holdings snapshot={snapshot} data={data} scope={scope} href={href} onClear={() => void clearHoldings()} disabled={reading || Boolean(saved.error)} />
       <PortfolioAssistant key={snapshot.importedAt} api={api} holdings={snapshot.holdings} data={data} scope={scope} href={href} />
     </> :

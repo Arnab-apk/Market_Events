@@ -56,7 +56,10 @@ export function PaperLive({ snapshot, api }: { snapshot: PortfolioSnapshot; api:
   const [enabled, setEnabled] = useState(false);
   const [quotes, setQuotes] = useState<QuoteSnapshot | null>(null);
   const [error, setError] = useState("");
-  const [symbol, setSymbol] = useState(`${snapshot.holdings[0].exchange}:${snapshot.holdings[0].symbol}`);
+  // Derive the charted holding from the current snapshot so a new import never shows a removed stock.
+  const choices = snapshot.holdings.map(holding => `${holding.exchange}:${holding.symbol}`);
+  const [picked, setSymbol] = useState(choices[0] ?? "");
+  const symbol = choices.includes(picked) ? picked : choices[0] ?? "";
   const [market, ticker] = symbol.split(":");
   useEffect(() => {
     if (!enabled) return;
@@ -73,7 +76,7 @@ export function PaperLive({ snapshot, api }: { snapshot: PortfolioSnapshot; api:
     }
     void update();
     return () => { active = false; clearTimeout(timer); };
-  }, [api, enabled]);
+  }, [api, enabled, snapshot.importedAt]);
   const companies = quotes?.quotes.map(quote => ({ instrument_id: quote.instrument_id,
     latest_close: quote.price, end: quote.last_trade_at })) as Company[] | undefined;
   const valuation = companies ? valuePortfolio(snapshot.holdings, companies, "live") : null;
@@ -97,6 +100,6 @@ export function PaperLive({ snapshot, api }: { snapshot: PortfolioSnapshot; api:
       </>}
     </>}
     <label className="field">Chart holding<select value={symbol} onChange={event => setSymbol(event.target.value)}>{snapshot.holdings.map(holding => <option key={`${holding.exchange}:${holding.symbol}`} value={`${holding.exchange}:${holding.symbol}`}>{holding.symbol}</option>)}</select></label>
-    <HoldingChart key={symbol} api={api} market={market} ticker={ticker} enabled={enabled} />
+    {symbol && <HoldingChart key={symbol} api={api} market={market} ticker={ticker} enabled={enabled} />}
   </section>;
 }
