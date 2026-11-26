@@ -81,7 +81,7 @@ export default function PortfolioAssistant({ api, holdings, data, scope, href }:
         {selected !== null && <button type="button" className="text-button" disabled={busy} onClick={() => setSelected(null)}>Show matching cases</button>}
         <Link href={href("settings", { tab: "connections" })}>Model setup</Link>
       </div>
-      <p className="muted small">The AI option sends the topic and saved case summaries to your configured model. Quantities, costs and account details stay in this tab.</p>
+      <p className="muted small">The AI option sends the topic and saved case summaries to your configured model. The model receives no quantities, costs or account details.</p>
     </>}
     {error && <p className="alert warning" role="alert">{error}</p>}
     <p className="muted small" role="status">{selected !== null ? "Cases suggested by the configured model." : candidates.length > context.length ? `Showing the latest ${context.length} of ${candidates.length} matching cases.` : "Showing the latest matching assessment per holding."}</p>

@@ -8,6 +8,7 @@ import { MAX_PORTFOLIO_BYTES, parsePortfolioCsv, portfolioStorageKey, valuePortf
 import type { PortfolioPreview, PortfolioSnapshot } from "../_lib/portfolio";
 import { useSavedPortfolio } from "./use-saved-portfolio";
 import { PaperLive } from "./paper-live";
+import { PaperStockPicker, type StockChoice } from "./paper-stock-picker";
 import { createPaperPortfolio, PAPER_COMPANIES } from "../_lib/paper-portfolio";
 import type { Href, PanelProps } from "./research-app";
 import PortfolioAssistant from "./portfolio-assistant";
@@ -118,24 +119,29 @@ export default function PortfolioPanel({ api, data, refresh, scope, href, demoHr
     finally { setReading(false); }
   }
 
-  async function preparePaperPortfolio() {
+  async function preparePaperPortfolio(stocks?: StockChoice[]) {
     setReading(true);
     setBrokerError("");
     setDraft(null);
     setStatus("Refreshing completed daily prices for the practice portfolio…");
     try {
-      const report = await api<{ errors: unknown[] }>("sync/live", {
-        company_ids: PAPER_COMPANIES, lookback_days: 14, include_news: false, include_commodities: false,
-      });
-      if (report.errors.length) throw new Error("Some daily prices could not be refreshed. Check Connections before creating the practice portfolio.");
-      const current = await api<Workspace>("workspace");
-      const practice = createPaperPortfolio(current.companies);
-      await refresh();
+      let practice: PortfolioSnapshot;
+      if (stocks) {
+        ({ snapshot: practice } = await api<{ snapshot: PortfolioSnapshot }>("paper-preview", { stocks }));
+      } else {
+        const report = await api<{ errors: unknown[] }>("sync/live", {
+          company_ids: PAPER_COMPANIES, lookback_days: 14, include_news: false, include_commodities: false,
+        });
+        if (report.errors.length) throw new Error("Some daily prices could not be refreshed. Check Connections before creating the practice portfolio.");
+        const current = await api<Workspace>("workspace");
+        practice = createPaperPortfolio(current.companies);
+        await refresh();
+      }
       setDraft({
         name: practice.source, paper: practice.paper,
         rows: practice.holdings.map((holding, index) => ({ line: index + 1, holding })),
       });
-      setStatus("Review the five-stock paper portfolio. Broker connection is optional.");
+      setStatus("Review the paper portfolio. Broker connection is optional.");
     } catch (error) {
       setDraft({ name: "Paper portfolio", rows: [], fileError: error instanceof Error ? error.message : "Could not prepare the paper portfolio." });
     } finally {
@@ -151,6 +157,7 @@ export default function PortfolioPanel({ api, data, refresh, scope, href, demoHr
       await saved.save(next);
       setDraft(null);
       setStatus(`${next.holdings.length} holdings imported${demo ? "." : " and saved to your private workspace."}`);
+      if (live) await refresh().catch(() => {});
     } catch { setStatus("Portfolio was not saved. Your previous holdings are unchanged."); }
   }
 
@@ -190,7 +197,10 @@ export default function PortfolioPanel({ api, data, refresh, scope, href, demoHr
         })}>Load sample CSV</button> : <Link className="button secondary" href={demoHref("portfolio")}>Try sample in demo</Link>}
         <a className="text-button" href={SAMPLE_PATH} download><ArrowDownToLine size={16} aria-hidden="true" />Download sample CSV</a>
       </div>
-      {live && <p className="muted small">Practice with ₹1,00,000 in virtual money across Asian Paints, Berger Paints, Pidilite, IndiGo and Reliance. Targets ₹20,000 per company using whole shares and refreshed daily closes. Unspent money stays as cash.</p>}
+      {live && <>
+        <p className="muted small">The quick-start paper portfolio uses five preset stocks. Choose your own stocks below to practise with a different portfolio.</p>
+        <PaperStockPicker api={api} disabled={reading} onPreview={preparePaperPortfolio} />
+      </>}
       {live && brokerStatus === "ready" && <div className="state-card">
         <p>Your Upstox holdings are ready to preview. Confirm the import to replace this tab’s portfolio.</p>
         <button type="button" className="button secondary" disabled={reading} onClick={() => {
@@ -228,7 +238,7 @@ export default function PortfolioPanel({ api, data, refresh, scope, href, demoHr
     </section>}
 
     {snapshot ? <>
-      {live && snapshot.paper && <PaperLive snapshot={snapshot} api={api} />}
+      {live && <PaperLive key={snapshot.importedAt} snapshot={snapshot} api={api} />}
       <Holdings snapshot={snapshot} data={data} scope={scope} href={href} onClear={() => void clearHoldings()} disabled={reading || Boolean(saved.error)} />
       <PortfolioAssistant key={snapshot.importedAt} api={api} holdings={snapshot.holdings} data={data} scope={scope} href={href} />
     </> :

@@ -105,13 +105,13 @@ export function Avatar({ name, muted = false }: { name: string; muted?: boolean 
 }
 
 /** One company with its latest verdict. The whole card is one link. */
-export function CompanyCard({ href, name, subtitle, verdict, score, line, selected = false }: {
-  href: string; name: string; subtitle: ReactNode; verdict: Verdict; score: number | null | undefined; line: ReactNode; selected?: boolean;
+export function CompanyCard({ href, name, subtitle, verdict, score, line, selected = false, pending = false }: {
+  href: string; name: string; subtitle: ReactNode; verdict: Verdict; score: number | null | undefined; line: ReactNode; selected?: boolean; pending?: boolean;
 }) {
   const scored = score != null && verdict !== "none" && verdict !== "irrelevant";
   return <Link className={`company-card${selected ? " selected" : ""}`} href={href} aria-current={selected ? "true" : undefined}>
-    <span className="company-card-head"><Avatar name={name} muted={!scored} /><span className="company-card-name"><strong>{name}</strong><small>{subtitle}</small></span><VerdictPill verdict={verdict} /></span>
-    <span className="company-card-score"><ScoreValue value={scored ? score : null} verdict={verdict} /><small>{scored ? "evidence score" : "not enough evidence"}</small></span>
+    <span className="company-card-head"><Avatar name={name} muted={!scored} /><span className="company-card-name"><strong>{name}</strong><small>{subtitle}</small></span>{pending ? <span className="pill neutral">Not analysed yet</span> : <VerdictPill verdict={verdict} />}</span>
+    <span className="company-card-score"><ScoreValue value={scored ? score : null} verdict={verdict} /><small>{pending ? "no saved analysis" : scored ? "evidence score" : "not enough evidence"}</small></span>
     <span className="company-card-line">{line}</span>
   </Link>;
 }

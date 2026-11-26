@@ -4,7 +4,7 @@
 // (strategy vs buy & hold). Data comes from the strategy-lab and technicals API responses. Also the opt-in
 // TradingView widget (HostedChart).
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { IChartApi, Time } from "lightweight-charts";
+import type { IChartApi, ISeriesApi, Time, UTCTimestamp } from "lightweight-charts";
 import type { Backtest, Bar, Point } from "./types";
 import { format } from "./types";
 import { useTheme } from "./theme-toggle";
@@ -52,6 +52,64 @@ const options = (palette: ReturnType<typeof chartPalette>) => ({
   rightPriceScale: { borderColor: palette.grid },
   timeScale: { borderColor: palette.grid, timeVisible: false },
 });
+
+export type IntradayBar = Omit<Bar, "time"> & { time: number };
+
+export function IntradayChart({ bars, symbol }: { bars: IntradayBar[]; symbol: string }) {
+  const theme = useTheme();
+  const node = useRef<HTMLDivElement>(null);
+  const series = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const chart = useRef<IChartApi | null>(null);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState(false);
+  const fitted = useRef(false);
+  const formatTime = useMemo(() => new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }), []);
+  useEffect(() => {
+    let active = true;
+    void import("lightweight-charts").then(L => {
+      if (!active || !node.current) return;
+      const palette = chartPalette();
+      const base = options(palette);
+      chart.current = L.createChart(node.current, {
+        ...base,
+        localization: { timeFormatter: (time: Time) => formatTime.format(Number(time) * 1000) },
+        timeScale: { ...base.timeScale, timeVisible: true, tickMarkFormatter: (time: Time) => formatTime.format(Number(time) * 1000) },
+      });
+      series.current = chart.current.addSeries(L.CandlestickSeries, {
+        upColor: palette.up, downColor: palette.down, borderVisible: false,
+        wickUpColor: palette.up, wickDownColor: palette.down,
+      });
+      fitted.current = false;
+      setReady(true);
+    }).catch(() => { if (active) setError(true); });
+    return () => {
+      active = false;
+      chart.current?.remove();
+      chart.current = null;
+      series.current = null;
+      setReady(false);
+    };
+  }, [formatTime, theme]);
+  useEffect(() => {
+    if (!ready || !series.current) return;
+    series.current.setData(bars.map(bar => ({ ...bar, time: bar.time as UTCTimestamp })));
+    if (!fitted.current) {
+      chart.current?.timeScale().fitContent();
+      fitted.current = true;
+    }
+  }, [bars, ready]);
+  return <>
+    {error ? <p role="status" className="alert warning">The chart renderer could not start. Use the candle table below.</p>
+      : <div className="chart-frame" ref={node} role="img" aria-label={`${symbol} Upstox intraday candlestick chart`} />}
+    <div className="chart-caption"><span>Upstox · five-minute candles · IST</span><a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">Chart by TradingView Lightweight Charts™</a></div>
+    <ChartData label={`Price candles (${bars.length})`} className="fold">{() => <div className="table-scroll"><table>
+      <thead><tr>{["Time (IST)", "Open", "High", "Low", "Close"].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
+      <tbody>{bars.map(bar => <tr key={bar.time}><th scope="row">{formatTime.format(bar.time * 1000)}</th>{[bar.open, bar.high, bar.low, bar.close].map((value, index) => <td key={index}>{format(value, 2)}</td>)}</tr>)}</tbody>
+    </table></div>}</ChartData>
+  </>;
+}
 
 export function PriceChart({ bars, indicators = NO_INDICATORS, selected = NO_SELECTION }: {
   bars: Bar[]; indicators?: Record<string, Point[]>; selected?: string[];

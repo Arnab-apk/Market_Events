@@ -1,3 +1,28 @@
+/* The pinned Next package includes both variable fonts. CSS bundles them as same-origin assets. */
+@font-face {
+  font-family: "Geist"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("../node_modules/next/dist/next-devtools/server/font/geist-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Mono"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("../node_modules/next/dist/next-devtools/server/font/geist-mono-latin.woff2") format("woff2");
+}
+
+/* Reading, navigation and tabular figures have distinct roles throughout the workspace. */
+body { font-size: 1rem; line-height: 1.55; }
+h1, h2, h3 { text-wrap: balance; overflow-wrap: break-word; }
+h2 { font-size: clamp(1.13rem, 1.03rem + .32vw, 1.35rem); font-weight: 620; letter-spacing: -.023em; }
+h3 { font-size: 1.02rem; font-weight: 610; letter-spacing: -.015em; }
+.source-text { font: 400 clamp(1.05rem, .99rem + .26vw, 1.2rem)/1.55 var(--display-font); }
+.section-note, .page-title p, .page-heading p, .empty-state p, .intro-copy > p { text-wrap: pretty; }
+.home-head p, .source-meta, time { font-variant-numeric: tabular-nums; }
+.score-value, .stat-value, .stats-grid strong, .numeric, .breakdown-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.story-row-title { font-weight: 550; line-height: 1.45; }
+.stat-label, .stats-grid span { font-weight: 530; }
+
 /* Masthead and research surfaces shared by every workspace view. */
 .topbar {
   color: #f4f4e9;
@@ -5,7 +30,7 @@
   background: var(--mode-shell);
 }
 .topbar-inner { min-height: 72px; }
-.brand, .brand:hover { color: #f6f4e9; letter-spacing: -.045em; font-size: 21px; }
+.brand, .brand:hover { color: #f6f4e9; letter-spacing: -.055em; font-size: 22px; font-weight: 675; }
 .brand svg {
   box-sizing: content-box;
   padding: 5px;
@@ -33,9 +58,9 @@
 h1, .home-companies > h2, .home-stories h2 {
   font-family: var(--display-font);
   font-weight: 500;
-  letter-spacing: -.043em;
+  letter-spacing: -.037em;
 }
-h1 { font-size: clamp(34px, 3.6vw, 51px); line-height: 1.07; }
+h1 { font-size: clamp(2.15rem, 1.55rem + 2.2vw, 3.25rem); line-height: 1.09; }
 .home-companies > h2, .home-stories h2 { font-size: 27px; }
 .page-title, .home-head, .company-head {
   padding-bottom: 19px;
@@ -48,7 +73,7 @@ h1 { font-size: clamp(34px, 3.6vw, 51px); line-height: 1.07; }
 .settings-nav { border-inline-start: 1px solid var(--mode-input-border); padding-inline-start: 10px; }
 .lab-banner { border-inline-start: 3px solid var(--mode-chart-gold); }
 .home-empty { border-top: 2px solid var(--mode-primary); }
-.stat-value, .company-card-score .score-value { letter-spacing: -.045em; }
+.stat-value, .company-card-score .score-value, .stats-grid strong { font-weight: 550; letter-spacing: -.045em; }
 .stat-tile, .metric { padding-block: 18px; }
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; }
 .stats-grid > div { display: grid; gap: 4px; padding: 16px; border: 1px solid var(--mode-border); border-radius: var(--radius-control); background: var(--mode-raised); }
@@ -71,7 +96,7 @@ h1 { font-size: clamp(34px, 3.6vw, 51px); line-height: 1.07; }
   background-size: 28px 28px;
   mask-image: linear-gradient(90deg, transparent, black);
 }
-.desk-intro h2 { font: 500 clamp(40px, 5vw, 71px)/.97 var(--display-font); letter-spacing: -.057em; }
+.desk-intro h2 { font: 500 clamp(2.4rem, 1.8rem + 3.35vw, 4.55rem)/1.02 var(--display-font); letter-spacing: -.047em; }
 .desk-intro em { color: #dceab2; font-weight: 400; }
 .intro-copy > p { max-width: 52ch; margin-top: 19px; color: #d4e2d5; line-height: 1.55; }
 .intro-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin-top: 20px; }
@@ -122,6 +147,7 @@ h1 { font-size: clamp(34px, 3.6vw, 51px); line-height: 1.07; }
   .intro-axis { margin-top: 8px; }
 }
 @media (max-width: 440px) {
+  .button { max-width: 100%; white-space: normal; padding-block: 7px; line-height: 1.35; }
   .topbar-inner { column-gap: 8px; }
   .topbar-tools { flex: 1 1 0; min-width: 0; }
   .brand { font-size: 17px; gap: 5px; }

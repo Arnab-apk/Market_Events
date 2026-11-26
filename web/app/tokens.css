@@ -6,11 +6,11 @@
 
 :root {
   color-scheme: light;
-  --font: Inter, "Segoe UI", system-ui, sans-serif;
-  --mono: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font: "Geist", "Segoe UI", system-ui, sans-serif;
+  --mono: "Geist Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   --radius-card: 13px;
   --radius-control: 8px;
-  --display-font: Spectral, "Iowan Old Style", Georgia, serif;
+  --display-font: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --radius-pill: 999px;
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
   --space-5: 20px; --space-6: 24px; --space-8: 32px;

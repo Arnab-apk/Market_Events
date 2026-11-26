@@ -25,7 +25,7 @@ test("confirmed holdings persist in a new browser context and concurrent edits a
   await context.close();
 });
 
-test("live paper quotes update valuation, pause, and embed the selected intraday chart", async ({ page }) => {
+test("live paper quotes update valuation and render the intraday chart without the embed", async ({ page }) => {
   const snapshot = { source: "Paper test", importedAt: new Date().toISOString(),
     holdings: [{ symbol: "ASIANPAINT", exchange: "NSE", quantity: 2, averageCost: 100 }],
     paper: { startingCash: 1000, cash: 800 } };
@@ -37,7 +37,11 @@ test("live paper quotes update valuation, pause, and embed the selected intraday
       quotes: [{ instrument_id: "LIVE:NSE:ASIANPAINT", price: calls === 1 ? 110 : 115,
         last_trade_at: new Date().toISOString() }] } });
   });
-  await page.route("https://s3.tradingview.com/**", route => route.fulfill({ contentType: "application/javascript", body: "/* deterministic widget load test */" }));
+  await page.route("**/api/research/portfolio-chart?*", route => {
+    expect(route.request().postDataJSON()).toEqual({ exchange: "NSE", symbol: "ASIANPAINT" });
+    return route.fulfill({ json: { source: "Upstox", session: "current session", fetched_at: new Date().toISOString(),
+      bars: [{ time: 1795664700, open: 103, high: 111, low: 101, close: 110, volume: 500 }] } });
+  });
   await page.clock.install();
   await page.goto(url);
   const demo = page.getByRole("region", { name: "Live paper demo" });
@@ -50,9 +54,38 @@ test("live paper quotes update valuation, pause, and embed the selected intraday
   await demo.getByLabel("Refresh paper prices every 15 seconds").uncheck();
   await page.clock.fastForward(30_000);
   expect(calls).toBe(2);
-  await demo.getByText("TradingView chart (optional, external service)", { exact: true }).click();
-  await demo.getByLabel("Load the TradingView widget").check();
-  const frame = demo.locator('iframe[title="Independent TradingView hosted chart"]');
-  await expect(frame).toHaveAttribute("srcdoc", /"symbol":"NSE:ASIANPAINT"/);
-  await expect(frame).toHaveAttribute("srcdoc", /"interval":"1"/);
+  const chart = demo.getByRole("img", { name: "NSE:ASIANPAINT Upstox intraday candlestick chart" });
+  await expect(chart.locator("canvas").first()).toBeVisible();
+  await expect(demo.getByRole("link", { name: "Open this chart on TradingView" })).toHaveAttribute("href", /symbol=NSE%3AASIANPAINT/);
+});
+
+test("a stock outside the preset can be selected, previewed and saved", async ({ page }) => {
+  const snapshot = { source: "Custom Indian stocks · paper money", importedAt: new Date().toISOString(),
+    holdings: [{ symbol: "INFY", exchange: "NSE", quantity: 50, averageCost: 1800 }],
+    paper: { startingCash: 100000, cash: 10000 } };
+  let saved: unknown = null;
+  await page.route("**/api/research/portfolio?*", route => {
+    if (route.request().method() === "POST") saved = route.request().postDataJSON().snapshot;
+    return route.fulfill({ json: { revision: saved ? 1 : 0, snapshot: saved } });
+  });
+  await page.route("**/api/research/stock-search?*", route => {
+    expect(route.request().postDataJSON()).toEqual({ exchange: "NSE", query: "Infosys" });
+    return route.fulfill({ json: { matches: [{ name: "Infosys Limited", exchange: "NSE", trading_symbol: "INFY", instrument_id: "LIVE:NSE:INFY" }] } });
+  });
+  await page.route("**/api/research/paper-preview?*", route => {
+    expect(route.request().postDataJSON()).toEqual({ stocks: [{ symbol: "INFY", exchange: "NSE" }] });
+    return route.fulfill({ json: { snapshot } });
+  });
+  await page.route("**/api/research/portfolio-chart?*", route => route.fulfill({ json: { source: "Upstox", session: "current session", bars: [] } }));
+  await page.goto(url);
+  await page.getByText("Choose your own paper stocks", { exact: true }).click();
+  await page.getByLabel("Stock name or ticker").fill("Infosys");
+  await page.getByRole("button", { name: "Search stocks", exact: true }).click();
+  await page.getByRole("button", { name: "Add INFY · Infosys Limited", exact: true }).click();
+  await page.getByRole("button", { name: "Preview selected paper stocks", exact: true }).click();
+  await expect(page.getByRole("region", { name: "CSV preview rows" })).toContainText("INFY");
+  expect(saved).toBeNull();
+  await page.getByRole("button", { name: "Import holdings", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Portfolio holdings table" })).toContainText("INFY");
+  await expect(page.getByRole("region", { name: "Portfolio holdings table" })).not.toContainText("ASIANPAINT");
 });

@@ -37,6 +37,7 @@ from .schemas import Article, MarketObservation, utc
 # ---------------------------------------------------------------------------
 
 MASTER_URL = "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz"
+BSE_MASTER_URL = "https://assets.upstox.com/market-quote/instruments/exchange/BSE.json.gz"
 MCX_MASTER_URL = "https://assets.upstox.com/market-quote/instruments/exchange/MCX.json.gz"
 API_URL = "https://api.upstox.com"
 IST = ZoneInfo("Asia/Kolkata")
@@ -61,6 +62,13 @@ def _universe_document(settings_or_root) -> dict:
         document = json.loads((root / "configs/live_universe.json").read_text(encoding="utf-8"))
         if not isinstance(document, dict) or not isinstance(document.get("instruments"), list):
             raise ValueError
+        extra = getattr(settings_or_root, "portfolio_instruments", [])
+        existing = {
+            item.get("instrument_id") for item in document["instruments"] if isinstance(item, dict)
+        }
+        document["instruments"].extend(
+            item for item in extra if item.get("instrument_id") not in existing
+        )
         identifiers = set()
         for item in document["instruments"]:
             if (
@@ -84,8 +92,8 @@ def _universe_document(settings_or_root) -> dict:
 
 def _valid_nse_instrument(item) -> bool:
     return (
-        item["instrument_id"].startswith("LIVE:NSE:")
-        and item.get("exchange") == "NSE"
+        item.get("exchange") in {"NSE", "BSE"}
+        and item["instrument_id"].startswith(f"LIVE:{item['exchange']}:")
         and item.get("market_family") in {"equity", "benchmark"}
     )
 
@@ -150,7 +158,11 @@ class _Reader:
             headers["Authorization"] = "Bearer " + self.settings.access_token.get_secret_value()
         self.last_request = time.monotonic()
         self.report["network_requests"] += 1
-        size_limit = MAX_MASTER_BYTES if url in {MASTER_URL, MCX_MASTER_URL} else MAX_RESPONSE_BYTES
+        size_limit = (
+            MAX_MASTER_BYTES
+            if url in {MASTER_URL, BSE_MASTER_URL, MCX_MASTER_URL}
+            else MAX_RESPONSE_BYTES
+        )
         try:
             with requests.get(
                 url,
@@ -194,15 +206,22 @@ class _Reader:
 
 def _discover(instrument, master):
     family = instrument["market_family"]
-    segment, kind = ("NSE_EQ", "EQ") if family == "equity" else ("NSE_INDEX", "INDEX")
+    exchange = instrument.get("exchange", "NSE")
+    segment, kind = (
+        (f"{exchange}_EQ", "EQ") if family == "equity" else (f"{exchange}_INDEX", "INDEX")
+    )
     matches = [
         item
         for item in master
         if isinstance(item, dict)
         and item.get("segment") == segment
-        and item.get("exchange") == "NSE"
-        and item.get("instrument_type") == kind
+        and item.get("exchange") == exchange
+        and (exchange == "BSE" or item.get("instrument_type") == kind)
         and item.get("trading_symbol") == instrument["trading_symbol"]
+        and (
+            not instrument.get("provider_instrument_key")
+            or item.get("instrument_key") == instrument["provider_instrument_key"]
+        )
     ]
     if len(matches) != 1:
         raise _FetchError("Current instrument master has no unique matching instrument")
@@ -218,7 +237,7 @@ def _discover(instrument, master):
         **instrument,
         "provider_instrument_key": key,
         "provider_name": matches[0].get("name"),
-        "mapping_source": MASTER_URL,
+        "mapping_source": BSE_MASTER_URL if exchange == "BSE" else MASTER_URL,
     }
 
 
@@ -453,6 +472,11 @@ def sync_live(
         master = reader.get(MASTER_URL, authenticated=False)
         if not isinstance(master, list):
             raise _FetchError("Provider instrument master must be a JSON list")
+        if any(universe[key].get("exchange") == "BSE" for key in selected):
+            bse_master = reader.get(BSE_MASTER_URL, authenticated=False)
+            if not isinstance(bse_master, list):
+                raise _FetchError("Provider BSE instrument master must be a JSON list")
+            master = master + bse_master
     except _FetchError as exc:
         error(None, "instrument_master", str(exc))
         return report
@@ -765,6 +789,11 @@ def sync_historical(
         master = reader.get(MASTER_URL, authenticated=False)
         if not isinstance(master, list):
             raise _FetchError("Provider instrument master must be a JSON list")
+        if any(universe[key].get("exchange") == "BSE" for key in selected):
+            bse_master = reader.get(BSE_MASTER_URL, authenticated=False)
+            if not isinstance(bse_master, list):
+                raise _FetchError("Provider BSE instrument master must be a JSON list")
+            master = master + bse_master
     except _FetchError as exc:
         error(None, "instrument_master", str(exc))
         return report

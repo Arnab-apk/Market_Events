@@ -51,6 +51,26 @@ class PortfolioSaveRequest(WebRequest):
     snapshot: PortfolioSnapshot | None
 
 
+class StockSelection(WebRequest):
+    symbol: str = Field(pattern=r"^[A-Z0-9][A-Z0-9&._-]{0,29}$")
+    exchange: Literal["NSE", "BSE"]
+
+
+class StockSearch(WebRequest):
+    query: str = Field(min_length=1, max_length=60)
+    exchange: Literal["NSE", "BSE"]
+
+
+class PaperSelection(WebRequest):
+    stocks: list[StockSelection] = Field(min_length=1, max_length=10)
+
+    @model_validator(mode="after")
+    def unique_stocks(self):
+        if len({(stock.exchange, stock.symbol) for stock in self.stocks}) != len(self.stocks):
+            raise ValueError("Select each stock once")
+        return self
+
+
 class AnalysisRequest(WebRequest):
     """Body for POST /api/analyse: one article, cutoff, policy and mode."""
 

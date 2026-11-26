@@ -10,6 +10,7 @@ import { useSearchParams } from "next/navigation";
 import { ArrowDownToLine, CheckCircle2, FileJson, LoaderCircle, Play, RefreshCw } from "lucide-react";
 import { Empty, JsonView, PanelProps, Status } from "./research-app";
 import { HostedChart, PriceChart } from "./research-charts";
+import { HoldingChart } from "./paper-live";
 import { CutoffField, Term, Time, formatIst } from "./ui";
 import { markTourStep } from "./demo-tour";
 import { Avatar, ScoreBreakdown, ScoreValue, StatTile, StoryRow, VerdictPill, verdictOf } from "./simple-ui";
@@ -471,6 +472,7 @@ export function TechnicalsPanel({ api, data, href }: PanelProps) {
   const [cutoff, setCutoff] = useState(data.workspace === "demo" ? afterLastPrice(richest?.end) : new Date().toISOString());
   const [result, setResult] = useState<{ technicals: TechnicalResult; history: IndicatorHistory } | null>(null);
   const [chips, setChips] = useState(() => INDICATOR_CHIPS.map(chip => chip.id));
+  const [showIntraday, setShowIntraday] = useState(false);
   const action = useAction();
   const noBars = !selected?.bars;
   const compute = (at: string) => {
@@ -545,7 +547,10 @@ export function TechnicalsPanel({ api, data, href }: PanelProps) {
       {technicals.snapshot.interpretation.context && <p className="muted small">{technicals.snapshot.interpretation.context}</p>}
       <details className="fold"><summary>All values with history needed</summary><div className="table-scroll"><table><thead><tr><th scope="col">Indicator</th><th scope="col">Value</th><th scope="col"><Term name="History needed / Warm-up missing">History needed</Term></th><th scope="col"><Term name="Available / Missing / Stale / Not applicable">Availability</Term></th></tr></thead><tbody>{values.map(([key, value]) => <tr key={key}><td>{human(key).toUpperCase()}</td><td className="numeric">{format(value, 3)}</td><td>{technicals.snapshot.required_history[key]} days</td><td>{value === null ? "Warm-up missing" : technicals.snapshot.stale.includes(key) ? "Stale" : "Available"}</td></tr>)}</tbody></table></div><JsonView value={technicals.snapshot} title="Inspect missing history, stale values and reading (JSON)" /></details>
     </section>}
-    <HostedChart />
+    {data.workspace === "local" && data.universe === "live" && selected ? <section className="card flow">
+      <div className="card-head"><h2>Intraday chart</h2><button type="button" className="button secondary" onClick={() => setShowIntraday(value => !value)}>{showIntraday ? "Hide intraday chart" : "Load intraday chart"}</button></div>
+      {showIntraday && <HoldingChart key={company} api={api} market={selected.instrument_id.split(":")[1]} ticker={selected.trading_symbol || selected.instrument_id.split(":")[2]} enabled={false} />}
+    </section> : <HostedChart initialSymbol="NASDAQ:AAPL" />}
   </>;
 }
 

@@ -10,6 +10,7 @@ const reads = new Set(["health", "workspace", "comparisons", "portfolio"]);
 const writes = new Set([
   "demo", "import", "analyse", "technicals", "history", "backtest", "monte-carlo",
   "outcomes", "analyse-news", "portfolio-review", "portfolio", "paper-quotes",
+  "stock-search", "paper-preview", "portfolio-chart",
 ]);
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {

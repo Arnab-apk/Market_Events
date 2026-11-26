@@ -58,6 +58,7 @@ class Settings(BaseModel):
     root: Path = Path(".")
     database_path: Path = Path("data/market_events.sqlite")
     database_url: SecretStr = Field(default=SecretStr(""), exclude=True)
+    portfolio_instruments: list[dict] = Field(default_factory=list, exclude=True)
     mode: Literal["live", "replay"] = "replay"
     universe: Literal["demo", "live"] = "demo"
     live_data: LiveDataSettings = Field(default_factory=LiveDataSettings)

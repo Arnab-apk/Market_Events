@@ -31,6 +31,9 @@ from .api_schemas import (
     MonteCarloRequest,
     PortfolioReviewRequest,
     PortfolioSaveRequest,
+    PaperSelection,
+    StockSearch,
+    StockSelection,
     SyncRequest,
     TechnicalRequest,
 )
@@ -51,7 +54,8 @@ from .pipeline import (
     run_demo,
 )
 from .storage import PortfolioConflict, Storage
-from .paper_quotes import latest_paper_quotes
+from .paper_quotes import intraday_candles, latest_paper_quotes
+from .stock_catalog import preview_paper_account, resolve_stocks, search_stocks
 from .technicals import compute_technicals
 from .web_workspace import view_workspace
 
@@ -140,14 +144,21 @@ def create_app(root=None, settings=None):
     @contextmanager
     def dependencies(workspace, universe, *, write=False):
         config = configuration(workspace, universe)
+
+        def context(store):
+            if workspace == "local" and universe == "live":
+                snapshot = store.portfolio("local:live")["snapshot"] or {}
+                config.portfolio_instruments = snapshot.get("instruments", [])
+            return Dependencies(store, config)
+
         if write:
             with Storage(config.database_path, config.database_url.get_secret_value()) as store:
-                yield Dependencies(store, config)
+                yield context(store)
         else:
             with view_workspace(
                 config.database_path, config.database_url.get_secret_value()
             ) as store:
-                yield Dependencies(store, config)
+                yield context(store)
 
     def namespace(identifier, config):
         return identifier.startswith("LIVE:") == (config.universe == "live")
@@ -307,7 +318,37 @@ def create_app(root=None, settings=None):
 
     @api.post("/api/paper-quotes")
     def paper_quotes():
-        return latest_paper_quotes(configuration("local", "live"))
+        with dependencies("local", "live") as deps:
+            snapshot = deps.storage.portfolio("local:live")["snapshot"] or {}
+            return latest_paper_quotes(deps.settings, snapshot.get("holdings"))
+
+    @api.post("/api/stock-search")
+    def stock_search(
+        body: StockSearch, workspace: Workspace = "local", universe: Universe = "live"
+    ):
+        if workspace != "local" or universe != "live":
+            raise HTTPException(422, "Choose the real-company workspace")
+        return search_stocks(body.query, body.exchange)
+
+    @api.post("/api/paper-preview")
+    def paper_preview(
+        body: PaperSelection, workspace: Workspace = "local", universe: Universe = "live"
+    ):
+        if workspace != "local" or universe != "live":
+            raise HTTPException(422, "Choose the real-company workspace")
+        with dependencies("local", "live", write=True) as deps:
+            return preview_paper_account(
+                deps, [stock.model_dump() for stock in body.stocks], 100_000
+            )
+
+    @api.post("/api/portfolio-chart")
+    def portfolio_chart(
+        body: StockSelection, workspace: Workspace = "local", universe: Universe = "live"
+    ):
+        if workspace != "local" or universe != "live":
+            raise HTTPException(422, "Choose the real-company workspace")
+        with dependencies("local", "live") as deps:
+            return intraday_candles(deps.settings, body.model_dump())
 
     @api.post("/api/portfolio")
     def save_portfolio(body: PortfolioSaveRequest, universe: Universe = "live"):
@@ -315,6 +356,17 @@ def create_app(root=None, settings=None):
             snapshot = (
                 body.snapshot.model_dump(mode="json", exclude_none=True) if body.snapshot else None
             )
+            if (
+                snapshot
+                and universe == "live"
+                and deps.settings.live_data.access_token.get_secret_value()
+            ):
+                try:
+                    instruments, _ = resolve_stocks(deps.settings, snapshot["holdings"])
+                    snapshot["instruments"] = instruments
+                except ValueError:
+                    # A provider outage must not prevent saving confirmed broker/CSV holdings.
+                    snapshot["instruments"] = []
             return deps.storage.save_portfolio(f"local:{universe}", snapshot, body.revision)
 
     @api.post("/api/demo")
