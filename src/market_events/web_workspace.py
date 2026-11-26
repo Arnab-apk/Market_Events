@@ -3,6 +3,7 @@ never runs migrations, so viewing a page can never create or change a database. 
 read methods of Storage.
 """
 
+import json
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -13,9 +14,13 @@ from .schemas import AnalysisRun, Article, EventOutcome, MarketObservation
 class WorkspaceView:
     """Read existing schema records without running Storage's schema migrations."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, database_url: str = ""):
         self.connection = None
-        if path.exists():
+        if database_url:
+            from .postgres import PostgresConnection
+
+            self.connection = PostgresConnection(database_url, readonly=True)
+        elif path.exists():
             self.connection = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
             self.connection.execute("PRAGMA query_only = ON")
 
@@ -64,11 +69,30 @@ class WorkspaceView:
         if self.connection:
             self.connection.close()
 
+    def portfolio(self, scope):
+        if self.connection is None:
+            return {"revision": 0, "snapshot": None}
+        if (
+            isinstance(self.connection, sqlite3.Connection)
+            and not self.connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='portfolios'"
+            ).fetchone()
+        ):
+            return {"revision": 0, "snapshot": None}
+        row = self.connection.execute(
+            "SELECT revision, data FROM portfolios WHERE scope = ?", (scope,)
+        ).fetchone()
+        return (
+            {"revision": row[0], "snapshot": json.loads(row[1]) if row[1] else None}
+            if row
+            else {"revision": 0, "snapshot": None}
+        )
+
 
 @contextmanager
-def view_workspace(path: Path):
+def view_workspace(path: Path, database_url: str = ""):
     """Context manager yielding a read-only view of a ledger."""
-    view = WorkspaceView(path)
+    view = WorkspaceView(path, database_url)
     try:
         yield view
     finally:

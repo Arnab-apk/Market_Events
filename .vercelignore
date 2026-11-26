@@ -22,3 +22,9 @@ playwright-report/
 test-results/
 web/test-results/
 web/tests/screenshots/
+
+# Local tooling and diagnostic archives are not application code.
+.agents/
+.claude/
+.codex/
+diagnostics/

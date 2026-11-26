@@ -17,6 +17,40 @@ class WebRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
+class PortfolioHolding(WebRequest):
+    symbol: str = Field(pattern=r"^[A-Z0-9][A-Z0-9&._-]{0,29}$")
+    exchange: Literal["NSE", "BSE"]
+    quantity: float = Field(gt=0, le=100_000_000)
+    averageCost: float = Field(ge=0, le=10_000_000)
+
+
+class PaperAccount(WebRequest):
+    startingCash: float = Field(gt=0, le=1_000_000_000_000)
+    cash: float = Field(ge=0, le=1_000_000_000_000)
+
+
+class PortfolioSnapshot(WebRequest):
+    source: str = Field(min_length=1, max_length=300)
+    importedAt: AwareTime
+    holdings: list[PortfolioHolding] = Field(min_length=1, max_length=250)
+    paper: PaperAccount | None = None
+
+    @model_validator(mode="after")
+    def valid_account(self):
+        keys = {(row.exchange, row.symbol) for row in self.holdings}
+        if len(keys) != len(self.holdings):
+            raise ValueError("Duplicate portfolio holdings")
+        invested = sum(row.quantity * row.averageCost for row in self.holdings)
+        if self.paper and abs(self.paper.startingCash - self.paper.cash - invested) > 0.01:
+            raise ValueError("Paper cash and invested cost must equal starting balance")
+        return self
+
+
+class PortfolioSaveRequest(WebRequest):
+    revision: int = Field(ge=0, le=2_000_000_000)
+    snapshot: PortfolioSnapshot | None
+
+
 class AnalysisRequest(WebRequest):
     """Body for POST /api/analyse: one article, cutoff, policy and mode."""
 

@@ -1,0 +1,13 @@
+{
+  "verdict": "PASS",
+  "before_deployment": "dpl_2YpTixVPbSygiNFvPPtqMCEnDw72",
+  "after_deployment": "dpl_HH6o5opB2Cw1hhuw1MwjYKWj7bd2",
+  "same_portfolio": true,
+  "same_analysis_payload": true,
+  "holdings": 5,
+  "observations": 424,
+  "run_ids": [
+    "63500fcf-d195-4464-ac1f-688069e62fc6",
+    "9623a56b-a3b5-4eee-9d03-141b8ac4bd8b"
+  ]
+}

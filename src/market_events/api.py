@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 from .agents.portfolio_agent import prioritize_cases
 from .api_schemas import (
@@ -30,6 +30,7 @@ from .api_schemas import (
     ImportRequest,
     MonteCarloRequest,
     PortfolioReviewRequest,
+    PortfolioSaveRequest,
     SyncRequest,
     TechnicalRequest,
 )
@@ -49,7 +50,8 @@ from .pipeline import (
     readiness,
     run_demo,
 )
-from .storage import Storage
+from .storage import PortfolioConflict, Storage
+from .paper_quotes import latest_paper_quotes
 from .technicals import compute_technicals
 from .web_workspace import view_workspace
 
@@ -96,6 +98,10 @@ def create_app(root=None, settings=None):
     async def invalid_operation(request, exc):
         return JSONResponse({"detail": str(exc)}, status_code=422)
 
+    @api.exception_handler(PortfolioConflict)
+    async def portfolio_conflict(request, exc):
+        return JSONResponse({"detail": str(exc)}, status_code=409)
+
     @api.exception_handler(ModelError)
     async def model_unavailable(request, exc):
         # Replay has no recorded output for this task, or a live model failed. The
@@ -122,6 +128,7 @@ def create_app(root=None, settings=None):
         result.root = api.state.root
         result.universe = "demo" if workspace == "demo" else universe
         if workspace == "demo":
+            result.database_url = SecretStr("")
             # A hosted deployment points this at a writable copy (see vercel_app.py).
             demo = os.getenv("MARKET_EVENTS_DEMO_DATABASE")
             result.database_path = Path(demo) if demo else api.state.root / "data/web_demo.sqlite"
@@ -134,10 +141,12 @@ def create_app(root=None, settings=None):
     def dependencies(workspace, universe, *, write=False):
         config = configuration(workspace, universe)
         if write:
-            with Storage(config.database_path) as store:
+            with Storage(config.database_path, config.database_url.get_secret_value()) as store:
                 yield Dependencies(store, config)
         else:
-            with view_workspace(config.database_path) as store:
+            with view_workspace(
+                config.database_path, config.database_url.get_secret_value()
+            ) as store:
                 yield Dependencies(store, config)
 
     def namespace(identifier, config):
@@ -273,7 +282,9 @@ def create_app(root=None, settings=None):
                 "provenance": "synthetic_fixture / recorded_replay"
                 if workspace == "demo"
                 else "imported evidence",
-                "exists": config.database_path.exists(),
+                "exists": bool(config.database_url.get_secret_value())
+                or config.database_path.exists(),
+                "storage": "postgres" if config.database_url.get_secret_value() else "sqlite",
                 "mode": config.mode,
                 "companies": coverage,
                 "articles": [article_json(a, story) for a in articles],
@@ -288,6 +299,23 @@ def create_app(root=None, settings=None):
                 "readiness": readiness(deps),
                 "history_end": "2020-12-31",
             }
+
+    @api.get("/api/portfolio")
+    def portfolio(universe: Universe = "live"):
+        with dependencies("local", universe) as deps:
+            return deps.storage.portfolio(f"local:{universe}")
+
+    @api.post("/api/paper-quotes")
+    def paper_quotes():
+        return latest_paper_quotes(configuration("local", "live"))
+
+    @api.post("/api/portfolio")
+    def save_portfolio(body: PortfolioSaveRequest, universe: Universe = "live"):
+        with dependencies("local", universe, write=True) as deps:
+            snapshot = (
+                body.snapshot.model_dump(mode="json", exclude_none=True) if body.snapshot else None
+            )
+            return deps.storage.save_portfolio(f"local:{universe}", snapshot, body.revision)
 
     @api.post("/api/demo")
     def demo():

@@ -6,10 +6,10 @@ import { acceptsLocalOrigin } from "../../../_lib/request-origin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const reads = new Set(["health", "workspace", "comparisons"]);
+const reads = new Set(["health", "workspace", "comparisons", "portfolio"]);
 const writes = new Set([
   "demo", "import", "analyse", "technicals", "history", "backtest", "monte-carlo",
-  "outcomes", "analyse-news", "portfolio-review",
+  "outcomes", "analyse-news", "portfolio-review", "portfolio", "paper-quotes",
 ]);
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {

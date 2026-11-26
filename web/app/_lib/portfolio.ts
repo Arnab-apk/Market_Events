@@ -7,7 +7,8 @@ const MAX_COST = 10_000_000;
 const COLUMNS = ["symbol", "exchange", "quantity", "average_cost"] as const;
 
 export type Holding = { symbol: string; exchange: "NSE" | "BSE"; quantity: number; averageCost: number };
-export type PortfolioSnapshot = { source: string; importedAt: string; holdings: Holding[] };
+export type PaperAccount = { startingCash: number; cash: number };
+export type PortfolioSnapshot = { source: string; importedAt: string; holdings: Holding[]; paper?: PaperAccount };
 type CsvRow = { line: number; values: string[] };
 type PreviewRow = { line: number; holding: Holding } | { line: number; error: string };
 export type PortfolioPreview = { rows: PreviewRow[]; fileError?: string };
@@ -139,7 +140,14 @@ export function readPortfolioSnapshot(raw: string | null): PortfolioSnapshot | n
       || !snapshot.holdings.length || snapshot.holdings.length > MAX_HOLDINGS || !snapshot.holdings.every(isHolding)) return null;
     const keys = new Set(snapshot.holdings.map(holding => portfolioInstrumentId(holding, "demo")));
     if (keys.size !== snapshot.holdings.length) return null;
-    return { source: snapshot.source, importedAt: snapshot.importedAt, holdings: snapshot.holdings };
+    if (snapshot.paper) {
+      const { startingCash, cash } = snapshot.paper;
+      const invested = snapshot.holdings.reduce((total, holding) => total + holding.quantity * holding.averageCost, 0);
+      if (!Number.isFinite(startingCash) || startingCash <= 0 || !Number.isFinite(cash) || cash < 0
+        || Math.abs(startingCash - cash - invested) > 0.01) return null;
+    }
+    return { source: snapshot.source, importedAt: snapshot.importedAt, holdings: snapshot.holdings,
+      ...(snapshot.paper ? { paper: snapshot.paper } : {}) };
   } catch {
     return null;
   }

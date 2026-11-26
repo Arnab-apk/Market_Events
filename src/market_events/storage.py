@@ -35,9 +35,7 @@ def _json(record: BaseModel) -> str:
     )
 
 
-def _migrate_v1(connection: sqlite3.Connection) -> None:
-    script = """
-        BEGIN;
+SCHEMA_V1 = """
         CREATE TABLE articles (
             article_id TEXT PRIMARY KEY,
             source_url TEXT NOT NULL,
@@ -114,6 +112,10 @@ def _migrate_v1(connection: sqlite3.Connection) -> None:
             data TEXT NOT NULL
         );
         """
+
+
+def _migrate_v1(connection: sqlite3.Connection) -> None:
+    script = "BEGIN;" + SCHEMA_V1
     # Guard the ledger even when another local SQLite client opens the database.
     for table in (
         "articles",
@@ -190,6 +192,15 @@ def _migrate_v3(connection: sqlite3.Connection) -> None:
 # ---------------------------------------------------------------------------
 
 
+PORTFOLIO_SCHEMA = """CREATE TABLE IF NOT EXISTS portfolios (
+    scope TEXT PRIMARY KEY, revision INTEGER NOT NULL CHECK(revision > 0), data TEXT
+)"""
+
+
+class PortfolioConflict(ValueError):
+    """A stale portfolio write must not overwrite another confirmed save."""
+
+
 class Storage:
     """One local SQLite connection, with FK enforcement and schema initialization."""
 
@@ -197,7 +208,12 @@ class Storage:
     # Connection lifecycle
     # ---------------------------------------------------------------------------
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, database_url: str = ""):
+        if database_url:
+            from .postgres import PostgresConnection
+
+            self.connection = PostgresConnection(database_url)
+            return
         path = Path(path)
         if str(path) != ":memory:":
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -215,9 +231,43 @@ class Storage:
                 version = 2
             if version == 2:
                 _migrate_v3(self.connection)
+            self.connection.execute(PORTFOLIO_SCHEMA)
+            self.connection.commit()
         except Exception:
             self.connection.close()
             raise
+
+    def portfolio(self, scope: str) -> dict:
+        row = self.connection.execute(
+            "SELECT revision, data FROM portfolios WHERE scope = ?", (scope,)
+        ).fetchone()
+        return (
+            {"revision": row[0], "snapshot": json.loads(row[1]) if row[1] else None}
+            if row
+            else {"revision": 0, "snapshot": None}
+        )
+
+    def save_portfolio(self, scope: str, snapshot: dict | None, revision: int) -> dict:
+        # A tombstone retains the revision after clearing, so stale tabs cannot resurrect it.
+        data = json.dumps(snapshot, allow_nan=False) if snapshot is not None else None
+        with self.connection:
+            if revision == 0:
+                cursor = self.connection.execute(
+                    "INSERT INTO portfolios(scope, revision, data) VALUES (?, 1, ?) "
+                    "ON CONFLICT(scope) DO NOTHING",
+                    (scope, data),
+                )
+            else:
+                cursor = self.connection.execute(
+                    "UPDATE portfolios SET revision = revision + 1, data = ? "
+                    "WHERE scope = ? AND revision = ?",
+                    (data, scope, revision),
+                )
+            if cursor.rowcount != 1:
+                raise PortfolioConflict(
+                    "The portfolio changed in another tab. Reload before saving again."
+                )
+        return {"revision": revision + 1, "snapshot": snapshot}
 
     def close(self) -> None:
         """Close the database connection."""

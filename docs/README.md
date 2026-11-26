@@ -11,6 +11,9 @@ Signal Fusion in Indian Financial Markets*, implemented as **Market Events**. Ne
 | [USER_GUIDE.md](USER_GUIDE.md) | Step-by-step website guide: starting it, every page, reading results, own data, troubleshooting; Streamlit and CLI in the appendix |
 | [CODEBASE_GUIDE.md](CODEBASE_GUIDE.md) | Code map: which module to read first and where each calculation lives |
 | [LIVE_SETUP.md](LIVE_SETUP.md) | Optional setup for real Upstox market data, news and live language models |
+| [MENTOR_SHOWCASE.md](MENTOR_SHOWCASE.md) | Live paper portfolio, Sarvam evidence and redeploy-persistence presentation workflow |
+| [Diagnostics](../diagnostics/README.md) | Troubleshooting runbook, read-only doctor, release evidence and historical reports |
+| [EXTENSION_INTEGRATION_IDEAS.md](EXTENSION_INTEGRATION_IDEAS.md) | Reviewed future extension options; proposals are separate from shipped functionality |
 
 ## Design
 
@@ -47,6 +50,6 @@ Signal Fusion in Indian Financial Markets*, implemented as **Market Events**. Ne
 | --- | --- |
 | [PRESENTATION_PLAN.md](PRESENTATION_PLAN.md) | Presentation-readiness plan, agent ownership, acceptance gates and cross-agent requests |
 | [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md) | How the development agents (Herdr tabs) divided the work |
-| [IMPLEMENTATION_LOG.md](IMPLEMENTATION_LOG.md) | Dated record of what was built and how it was verified |
-| [WEBSITE_VERIFICATION.md](WEBSITE_VERIFICATION.md) | Browser and build checks for the Next.js dashboard |
+| [IMPLEMENTATION_LOG.md](../diagnostics/history/IMPLEMENTATION_LOG.md) | Dated record of what was built and how it was verified |
+| [WEBSITE_VERIFICATION.md](../diagnostics/history/WEBSITE_VERIFICATION.md) | Browser and build checks for the Next.js dashboard |
 | [archive/planning/](archive/planning/) | Early planning documents: MVP guide, project comparison, prototype workflow (may not match current code) |

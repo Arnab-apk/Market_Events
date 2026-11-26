@@ -1,6 +1,6 @@
 # A Heterogeneous Multi-Agent Framework for Financial Event Detection and Cross-Market Signal Fusion in Indian Financial Markets
 
-**Market Events** is the software that implements this framework. It is a local research workbench
+**Market Events** is the software that implements this framework. It is a research website and workbench
 for dated financial news about Indian (NSE) companies. Small and large language models only *read*
 an article: they decide whether it matters and extract what happened, quoting the source word for word.
 Ordinary Python then checks that evidence against market prices that were actually available at the
@@ -39,7 +39,9 @@ Offline demo from the command line instead:
 
 To use real market data, choose **Connect real data** from Home. The Upstox integration imports completed daily candles and recent company news on demand. Configure the read-only token before refreshing. Article analysis with configured models has its own setup. See [the real-data setup guide](docs/LIVE_SETUP.md).
 
-Open **Portfolio** to import a holdings CSV or connect Upstox, then review saved company evidence. The demo works from the bundled CSV. See the [Portfolio setup](docs/PORTFOLIO_SPRINT_HANDOFF.md#portfolio-assistant-and-broker-setup) for the broker connection and Chrome shortcut.
+Open **Portfolio** to create a ₹1,00,000 Indian-stock paper account, import a holdings CSV or optionally connect Upstox, then review saved company evidence. The deployed private workspace saves portfolios and analysis in Neon Postgres. Live paper prices refresh from Upstox every 15 seconds; TradingView is an independent chart view. Sarvam supplies hosted analysis, with no local model installation required. See the [Portfolio setup](docs/PORTFOLIO_SPRINT_HANDOFF.md#portfolio-assistant-and-broker-setup) for the broker connection and Chrome shortcut.
+
+Use the [mentor showcase](docs/MENTOR_SHOWCASE.md) for a complete presentation workflow and observed live proof. Use [diagnostics/](diagnostics/README.md) for the troubleshooting runbook, safe health checks, release evidence and archived verification history.
 
 ## How it works (catalyst to confirmation)
 

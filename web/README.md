@@ -2,8 +2,7 @@
 
 A Next.js (App Router) front end for the Python research pipeline in `src/market_events/`.
 The dashboard navigation has **Home**, **Portfolio**, **Analyse**, **Results** and **Lab**, plus a
-**Settings** gear. **Portfolio** imports a holdings CSV in the browser and opens research for each
-company.
+**Settings** gear. **Portfolio** creates an Indian-stock paper account, imports a holdings CSV or optionally connects Upstox, and opens saved company research. Confirmed private-workspace holdings are saved server-side; the synthetic demo remains isolated to the browser tab.
 **Home** opens **Overview**. **Results** opens **Saved runs**, with **Compare methods** alongside it.
 **Lab** opens **Indicators**, alongside **Backtest** and **Monte Carlo**. **Settings** opens
 **Import data**, alongside **Connections**, **Glossary**, **Appearance** and **About**.
@@ -45,7 +44,8 @@ web/
 │     ├─ layout.css         App shell, top bar, page headings and footer
 │     ├─ components.css     Panels, forms, buttons, tables, pills, alerts, charts, result cards
 │     ├─ overview.css       Overview section and research guide
-│     └─ presentation.css   Projector readability overrides (loaded last)
+│     ├─ presentation.css   Projector readability overrides
+│     └─ research-desk.css  Shared visual system, first-visit introduction and reduced-motion-aware animation
 ├─ tests/
 │  ├─ demo-walkthrough.spec.ts   Playwright: desktop light/dark, phone, navigation and demo flows
 │  ├─ screenshots/               Output of the walkthrough

@@ -76,6 +76,15 @@ for (const [name, callback] of [
       method: "POST", headers: { host: "unregistered.vercel.app", origin: "https://unregistered.vercel.app" },
     });
     expect((await POST(wrongHost)).status).toBe(503);
+    const extensionStart = await POST(request("action=start&source=extension", "POST"));
+    const extensionCookie = extensionStart.headers.get("set-cookie")!.split(";")[0];
+    const extensionUrl = new URL((await extensionStart.json()).url);
+    const extensionState = extensionUrl.searchParams.get("state");
+    const extensionCallback = await GET(request(`state=${extensionState}&code=new-code`, "GET", extensionCookie));
+    const destination = new URL(extensionCallback.headers.get("location")!);
+    expect(destination.origin).toBe(origin);
+    expect(destination.searchParams.get("source")).toBe("extension");
+    expect(destination.searchParams.get("upstox")).toBe("ready");
   } finally {
     globalThis.fetch = originalFetch;
     keys.forEach((key, index) => {

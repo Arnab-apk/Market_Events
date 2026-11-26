@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-26",
+  "production_url": "https://final-yr-proj.vercel.app",
+  "deployment": "dpl_HH6o5opB2Cw1hhuw1MwjYKWj7bd2",
+  "verification": {
+    "python_passed": 570,
+    "python_opt_in_postgres_skipped": 3,
+    "separate_database_integration_passed": 7,
+    "javascript_passed": 69,
+    "playwright_passed": 22,
+    "visual_layout_checks_passed": 39,
+    "typescript": "passed",
+    "eslint": "passed",
+    "production_build": "passed"
+  },
+  "actual_provider_checks": {
+    "upstox_paper_quote_count": 5,
+    "upstox_refresh_network_requests": 14,
+    "upstox_refresh_errors": 0,
+    "sarvam_filter": "success",
+    "sarvam_extraction": "success",
+    "sarvam_explanation": "success",
+    "parent_analysis_status": "abstained: unsupported event family"
+  },
+  "limits": [
+    "Real Upstox holdings/PIN and installed extension flow remain unverified.",
+    "Real TradingView frame loaded; complete external chart rendering remains unconfirmed.",
+    "Private workspace is shared by authorized Vercel project visitors; per-user accounts are not implemented."
+  ],
+  "secrets_included": false
+}

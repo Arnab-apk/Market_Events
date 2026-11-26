@@ -498,6 +498,7 @@ test("a replay run exposes its inputs, audit and downloadable snapshot", async (
     await expect(page).toHaveURL(new RegExp(`run=${run.run_id}`));
     await expect(page.getByRole("heading", { name: "Model call audit" })).toBeVisible();
     await expectDownload(page, "Download snapshot", `case-${run.run_id}.json`);
+    await page.getByRole("link", { name: "Browse saved runs" }).click();
     const savedSearch = page.getByRole("searchbox", { name: "Search" });
     await savedSearch.fill("story-does-not-exist");
     await expect(page.getByText("No saved runs match this search.")).toBeVisible();

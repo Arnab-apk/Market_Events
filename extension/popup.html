@@ -9,6 +9,14 @@
 <body>
   <main>
     <h1>Market Events</h1>
+    <label for="website">Website</label>
+    <select id="website">
+      <option value="https://final-yr-proj.vercel.app">Deployed website</option>
+      <option value="http://127.0.0.1:3000">Local workspace</option>
+    </select>
+    <a class="portfolio" href="https://final-yr-proj.vercel.app/?view=portfolio&amp;workspace=local&amp;universe=live" target="_blank" rel="noopener noreferrer">Open paper portfolio</a>
+    <button id="connect" type="button">Connect Upstox (optional)</button>
+    <p class="source">Create an Indian-stock portfolio with virtual money on the website. Broker sign-in opens Upstox's PIN page.</p>
     <div class="modes" role="group" aria-label="Evidence source">
       <button id="real" type="button" aria-pressed="true">Real data</button>
       <button id="demo" type="button" aria-pressed="false">Demo</button>
@@ -23,8 +31,7 @@
       <div id="scale-labels" class="metric scale-labels" aria-hidden="true"><span>−1</span><span>0</span><span>+1</span></div>
       <p class="metric coverage"><span>Evidence coverage</span><strong id="coverage"></strong></p>
     </section>
-    <a id="details" href="http://127.0.0.1:3000/?view=results&amp;tab=saved&amp;workspace=local&amp;universe=live" target="_blank" rel="noopener noreferrer">Open for analysis</a>
-    <a class="portfolio" href="http://127.0.0.1:3000/?view=portfolio&amp;workspace=local&amp;universe=live" target="_blank" rel="noopener noreferrer">Open Portfolio</a>
+    <a id="details" href="https://final-yr-proj.vercel.app/?view=results&amp;tab=saved&amp;workspace=local&amp;universe=live" target="_blank" rel="noopener noreferrer">Open for analysis</a>
   </main>
   <script src="popup.js" defer></script>
 </body>

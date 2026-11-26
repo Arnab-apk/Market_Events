@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { parsePortfolioCsv, portfolioStorageKey, readPortfolioSnapshot, valuePortfolio } from "../app/_lib/portfolio.ts";
+import { createPaperPortfolio, PAPER_SYMBOLS } from "../app/_lib/paper-portfolio.ts";
 
 const sample = readFileSync(new URL("../public/sample-portfolio.csv", import.meta.url), "utf8");
 const header = "symbol,exchange,quantity,average_cost";
@@ -10,6 +11,24 @@ const quotes = [
   { instrument_id: "NSE:INDIGO", latest_close: 290.242239, end: "2026-01-23T10:00:00Z" },
   { instrument_id: "NSE:PIDILITIND", latest_close: 232.193791, end: "2026-01-23T10:00:00Z" },
 ];
+
+test("paper money buys whole Indian shares within the virtual budget and preserves remaining cash", () => {
+  const now = new Date("2026-11-26T12:00:00Z");
+  const companies = PAPER_SYMBOLS.map((symbol, index) => ({
+    instrument_id: `LIVE:NSE:${symbol}`, latest_close: 1100 + index * 173.25, end: "2026-11-25T10:00:00Z",
+  }));
+  const account = createPaperPortfolio(companies, now);
+  assert.equal(account.holdings.length, 5);
+  assert.ok(account.holdings.every(holding => Number.isInteger(holding.quantity) && holding.quantity > 0));
+  const invested = account.holdings.reduce((total, holding) => total + holding.quantity * holding.averageCost, 0);
+  assert.ok(invested <= 100000);
+  assert.equal(invested + account.paper.cash, account.paper.startingCash);
+  assert.deepEqual(readPortfolioSnapshot(JSON.stringify(account)), account);
+  assert.equal(readPortfolioSnapshot(JSON.stringify({ ...account, paper: { startingCash: 100000, cash: -1 } })), null);
+  assert.throws(() => createPaperPortfolio(companies, new Date("2026-12-01T12:00:00Z")), /recent completed daily price/);
+  assert.throws(() => createPaperPortfolio([], now), /recent completed daily price/);
+  assert.throws(() => createPaperPortfolio(companies.map(company => ({ ...company, latest_close: 30000 })), now), /whole-share allocation/);
+});
 
 test("the bundled portfolio yields reproducible totals and market-value weights", () => {
   const result = valuePortfolio(parsePortfolioCsv(sample).rows.map(row => row.holding), quotes, "demo");

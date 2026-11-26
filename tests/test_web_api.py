@@ -139,6 +139,28 @@ def article(identifier):
     )
 
 
+def test_portfolio_persistence_validation_and_conflicts(web):
+    endpoint = "/api/portfolio?universe=live"
+    assert web.client.get(endpoint).json() == {"revision": 0, "snapshot": None}
+    assert not web.database.exists(), "Reading an empty portfolio must not initialize SQLite"
+    snapshot = {
+        "source": "Paper account",
+        "importedAt": "2026-01-01T12:00:00Z",
+        "holdings": [{"symbol": "TEST", "exchange": "NSE", "quantity": 2, "averageCost": 100}],
+        "paper": {"startingCash": 1000, "cash": 800},
+    }
+    assert web.client.post(endpoint, json={"revision": 0, "snapshot": snapshot}).status_code == 200
+    restored = api_module.create_app(root=web.root, settings=web.settings)
+    with TestClient(restored) as other:
+        assert other.get(endpoint).json()["snapshot"]["paper"]["cash"] == 800
+        assert other.post(endpoint, json={"revision": 0, "snapshot": None}).status_code == 409
+        invalid = {**snapshot, "paper": {"startingCash": 1000, "cash": 0}}
+        assert other.post(endpoint, json={"revision": 1, "snapshot": invalid}).status_code == 422
+        assert other.get("/api/portfolio?universe=demo").json()["snapshot"] is None
+        assert other.post(endpoint, json={"revision": 1, "snapshot": None}).json()["revision"] == 2
+        assert other.post(endpoint, json={"revision": 0, "snapshot": snapshot}).status_code == 409
+
+
 def run(identifier, source):
     return AnalysisRun(
         run_id=identifier,

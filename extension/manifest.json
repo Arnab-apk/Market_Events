@@ -1,9 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Market Events Portfolio",
-  "description": "Open your local Market Events Portfolio tab from Chrome.",
-  "version": "1.3.0",
-  "host_permissions": ["http://127.0.0.1/*"],
+  "description": "Connect Upstox and open Market Events for portfolio research.",
+  "version": "1.5.0",
+  "permissions": ["storage"],
+  "host_permissions": ["https://final-yr-proj.vercel.app/*", "http://127.0.0.1/*"],
+  "background": { "service_worker": "background.js" },
   "action": {
     "default_title": "Market Events Portfolio",
     "default_popup": "popup.html"

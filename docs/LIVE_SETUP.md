@@ -10,7 +10,7 @@ This guide covers the read-only real-data extension of Market Events. Technical 
 
 For this NSE-focused prototype, the selected provider is **Upstox**. Its current [Analytics Token documentation](https://upstox.com/developer/api-documentation/analytics-token/) describes a free, read-only token with one-year validity, generated directly in Developer Apps. Historical-data and news GET APIs are covered without a static IP requirement. This token cannot place or modify orders. The provider documentation was checked on 24 October 2026.
 
-This keeps the initial setup to one provider credential for both prices and news. The app does not require a separate paid technical-indicator API: RSI and the other indicators are calculated from the downloaded bars. Local Ollama models can supply the existing filter/extraction roles without a cloud model API key.
+This keeps the initial setup to one provider credential for both prices and news. The app does not require a separate paid technical-indicator API: RSI and the other indicators are calculated from the downloaded bars. Hosted Sarvam models supply the filter/extraction roles through `SARVAM_API_KEY`; no local model installation is required.
 
 Provider account access, permissions, actual response coverage and token validity are checked by an explicit fetch. A configured token is not proof of connectivity. No real provider account success is implied by offline tests.
 
@@ -31,13 +31,8 @@ MARKET_EVENTS_DATABASE=data/market_events.sqlite
 # Paste your own read-only token locally, never into source control.
 UPSTOX_ANALYTICS_TOKEN=replace_with_your_token
 
-# Optional for article event analysis. Use model names installed on your machine.
-SLM_PROVIDER=ollama
-SLM_BASE_URL=http://localhost:11434
-SLM_MODEL=your_installed_small_model
-LLM_PROVIDER=ollama
-LLM_BASE_URL=http://localhost:11434
-LLM_MODEL=your_installed_extraction_model
+# Hosted article filtering and extraction; no local model server.
+SARVAM_API_KEY=replace_with_your_sarvam_key
 ```
 
 The token loader prefers `UPSTOX_ANALYTICS_TOKEN`; `UPSTOX_ACCESS_TOKEN` is a lower-priority alias. Keep only the credential you intend to use. The existing model adapters also support an OpenAI-compatible endpoint through their own provider/base-URL/model/API-key settings.
@@ -80,10 +75,11 @@ Opening a page, reading the universe metadata or changing filters does not trigg
    | `UPSTOX_ANALYTICS_TOKEN` | Upstox Analytics Token for daily prices and news |
    | `SARVAM_API_KEY` | Sarvam API subscription key |
    | `MARKET_EVENTS_MODE` | `live` |
+   | `DATABASE_URL` | Connected Neon Postgres URL, server-only |
 
-4. Redeploy the production build and open the registered domain while signed into Vercel. In **My data – real companies**, use **Settings → Connections** to sync and analyse a story. Use **Portfolio → Connect Upstox**, sign in on Upstox, and select **Preview Upstox holdings** promptly to exchange the one-time authorization code. The OAuth import stores confirmed holdings in the current browser tab. [Upstox OAuth authentication](https://upstox.com/developer/api-documentation/authentication/)
+4. Redeploy the production build and open the registered domain while signed into Vercel. In **My data – real companies**, use **Settings → Connections** to sync and analyse a story. Use **Portfolio → Connect Upstox**, sign in on Upstox, and select **Preview Upstox holdings** promptly to exchange the one-time authorization code. The OAuth import saves confirmed holdings in the private workspace database. [Upstox OAuth authentication](https://upstox.com/developer/api-documentation/authentication/)
 
-The deployed research database currently uses Vercel's temporary filesystem. Live data and assessments can reset when a request reaches a new instance. [Vercel Functions filesystem support](https://vercel.com/docs/functions/runtimes#file-system-support)
+Connect a Neon Postgres resource to the Vercel project's **Production** environment before deploying. The integration supplies `DATABASE_URL`; `MARKET_EVENTS_DATABASE_URL` is an optional override. Private portfolios, imported evidence, analysis, model traces and outcomes survive deployments and instance changes. Hosted startup refuses to use temporary storage for the private workspace. The synthetic demo retains a disposable SQLite copy. Separate per-user accounts are not implemented: authorized Vercel project visitors share the private workspace. See [the storage runbook](../diagnostics/RUNBOOK.md).
 
 ## 4. First real-data run
 

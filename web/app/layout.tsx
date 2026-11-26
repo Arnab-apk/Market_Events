@@ -7,6 +7,7 @@ import "./layout.css";
 import "./components.css";
 import "./overview.css";
 import "./presentation.css";
+import "./research-desk.css";
 import { THEME_INIT_SCRIPT } from "./theme-config";
 
 export const metadata: Metadata = {

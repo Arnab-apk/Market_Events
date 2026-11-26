@@ -134,11 +134,11 @@ export function EquityChart({ points }: { points: Backtest["equity"] }) {
 }
 
 /** Optional TradingView hosted widget (Lab › Indicators). Off until the user opts in; it never feeds local research. */
-export function HostedChart() {
+export function HostedChart({ initialSymbol = "NSE:RELIANCE", interval = "D" }: { initialSymbol?: string; interval?: "D" | "1" }) {
   const theme = useTheme();
-  const [enabled, setEnabled] = useState(false), [symbol, setSymbol] = useState("NSE:RELIANCE");
+  const [enabled, setEnabled] = useState(false), [symbol, setSymbol] = useState(initialSymbol);
   const valid = /^[A-Za-z0-9_:-]{1,80}$/.test(symbol);
-  const config = JSON.stringify({ autosize: true, symbol, interval: "D", timezone: "Asia/Kolkata", theme, style: "1", locale: "en", allow_symbol_change: true });
+  const config = JSON.stringify({ autosize: true, symbol, interval, timezone: "Asia/Kolkata", theme, style: "1", locale: "en", allow_symbol_change: true });
   const light = theme === "light";
   const html = `<html><head><style>html,body{height:100%;margin:0}.tradingview-widget-container{height:480px!important;min-height:480px}</style></head><body style="margin:0;background:${light ? "#ffffff" : "#161a21"};color:${light ? "#111827" : "#e8eaed"}"><div class="tradingview-widget-container" style="height:480px;width:100%"><div class="tradingview-widget-container__widget" style="height:450px;width:100%"></div><a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" style="color:${light ? "#2f55d4" : "#7b97f0"}">Chart by TradingView</a><script src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>${valid ? config : "{}"}</script></div></body></html>`;
   return <details className="card fold"><summary>TradingView chart (optional, external service)</summary>

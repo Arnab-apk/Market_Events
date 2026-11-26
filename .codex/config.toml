@@ -1,0 +1,12 @@
+tool_output_token_limit = 4000
+
+[mcp_servers.project_memory]
+command = "powershell.exe"
+args = [
+    "-NoProfile",
+    "-NonInteractive",
+    "-Command",
+    "$ErrorActionPreference = 'Stop'; $project = git rev-parse --show-toplevel; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Set-Location -LiteralPath $project; & './.cache/codex-context/memory-venv/Scripts/codex-agent-mem-mcp.exe' --db-path '.cache/codex-context/memory.sqlite' --profile full --response-mode compact --telemetry-mode off; exit $LASTEXITCODE",
+]
+enabled_tools = ["mem_context_pack", "mem_search", "mem_note_create"]
+omit_tools_from = ["direct"]

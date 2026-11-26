@@ -1,7 +1,7 @@
 """Vercel entry point for the Python API (the `api` service in vercel.json).
 
 Vercel's filesystem is read-only except /tmp, so the bundled synthetic demo database is copied to
-/tmp on a cold start and both workspaces write there. Changes last only as long as the instance.
+/tmp on a cold start. Private workspace records live in Postgres across deployments.
 The demo always replays recorded output. The live workspace uses the configured provider secrets
 and model mode when the user requests a sync or analysis.
 """
@@ -24,6 +24,14 @@ os.environ.setdefault("MARKET_EVENTS_ROOT", str(ROOT))
 os.environ.setdefault("MARKET_EVENTS_MODE", "replay")
 os.environ.setdefault("MARKET_EVENTS_DEMO_DATABASE", str(demo_copy))
 os.environ.setdefault("MARKET_EVENTS_DATABASE", str(WRITABLE / "market_events.sqlite"))
+
+database_url = os.getenv("MARKET_EVENTS_DATABASE_URL") or os.getenv("DATABASE_URL")
+if not database_url:
+    raise RuntimeError("Configure DATABASE_URL for persistent Vercel workspace storage")
+
+from market_events.postgres import initialize_postgres  # noqa: E402
+
+initialize_postgres(database_url)
 
 from market_events.api import create_app  # noqa: E402  (needs the paths above)
 

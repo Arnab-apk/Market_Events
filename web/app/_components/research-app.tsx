@@ -18,6 +18,7 @@ import { GlossaryList, Term, friendlyError } from "./ui";
 import { SubTabs, Toast } from "./simple-ui";
 import { normalizeView, type View } from "./routes";
 import { resetTour } from "./demo-tour";
+import { WorkspaceIntroduction } from "./workspace-introduction";
 import packageInfo from "../../package.json";
 
 const PortfolioPanel = dynamic(() => import("./portfolio-panel"));
@@ -128,11 +129,14 @@ function WorkspaceShell({ scope, view, tab, term, notice, setNotice }: { scope: 
     </div></header>
     {universe === "demo" && <div className="demo-ribbon" role="note"><p><span className="demo-badge">{demo ? "Demo mode" : "Demo companies"}</span><span>{demo ? "All articles, prices and model answers are invented test data. Not advice; nothing here places orders." : "Using local data for the demo company universe."}</span><Link href={href("settings", { tab: "glossary", term: "Synthetic demo" })}>What does this mean?</Link></p></div>}
     {error && <div className="api-alert" role="alert"><p><strong>{unreachable ? "Can't reach the research engine." : "Could not complete the request."}</strong> {unreachable ? "The local Python service on port 8000 isn't responding. Start the dev stack with npm.cmd run dev, then retry." : error}</p><button type="button" className="button secondary" onClick={reload} disabled={busy}>Retry</button></div>}
-    <main id="main-content" className="content">
+    <main id="main-content" className="content" tabIndex={-1}>
       {!data && !error && <div className="loading-state"><LoaderCircle className="spin" size={24} aria-hidden="true" /><p>Opening your research workspace…</p></div>}
       {data && props && <>
-        {view === "home" && <Home api={api} data={data} href={href} demoHref={demoHref} realDataHref={link("settings", { workspace: "local", universe: "live" }, { tab: "connections" })} onDemo={loadDemo} busy={busy} />}
-        {view === "portfolio" && <PortfolioPanel api={api} data={data} scope={scope} href={href} demoHref={demoHref} />}
+        {view === "home" && <>
+          <WorkspaceIntroduction aboutHref={href("settings", { tab: "about" })} />
+          <Home api={api} data={data} href={href} demoHref={demoHref} realDataHref={link("settings", { workspace: "local", universe: "live" }, { tab: "connections" })} onDemo={loadDemo} busy={busy} />
+        </>}
+        {view === "portfolio" && <PortfolioPanel api={api} data={data} refresh={refresh} scope={scope} href={href} demoHref={demoHref} />}
         {view === "analyse" && <EventsPanel {...props} />}
         {view === "results" && <div className="view-stack">
           <PageTitle title="Results" description="Every saved analysis, and how the three methods compare." />

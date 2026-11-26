@@ -68,6 +68,9 @@ test("invalid rows block confirmation and a valid import shows partial coverage"
 });
 
 test("an Upstox callback previews holdings and preserves a confirmed import until replaced", async ({ page }) => {
+  const endpoint = "/api/research/portfolio?workspace=local&universe=live";
+  const initial = await (await page.request.get(endpoint)).json();
+  await page.request.post(endpoint, { data: { revision: initial.revision, snapshot: null } });
   await page.route("**/api/portfolio/upstox?action=preview", route => route.fulfill({
     json: { csv: "symbol,exchange,quantity,average_cost\nASIANPAINT,NSE,10,100" },
   }));
@@ -79,7 +82,7 @@ test("an Upstox callback previews holdings and preserves a confirmed import unti
   await expect(page.getByRole("region", { name: "Portfolio holdings table" })).toContainText("ASIANPAINT");
   await page.reload();
   await expect(page.getByRole("region", { name: "Portfolio holdings table" })).toContainText("ASIANPAINT");
-  await page.getByRole("button", { name: "Clear holdings from this tab" }).click();
+  await page.getByRole("button", { name: "Clear saved holdings" }).click();
   await page.reload();
   await expect(page.getByRole("heading", { name: "No holdings imported" })).toBeVisible();
 });

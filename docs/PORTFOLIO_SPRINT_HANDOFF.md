@@ -6,6 +6,14 @@ Market Events now has a **Portfolio** tab. It reads a holdings CSV in the browse
 
 The built-in sample uses the synthetic demo workspace. The new flow needs no broker account, market-data refresh, model call, or database migration. Run the existing Next.js and FastAPI stack to use it locally.
 
+### Indian-stock paper portfolio
+
+In **My data – real companies → Portfolio**, choose **Create ₹1,00,000 paper portfolio**. This explicitly refreshes completed daily prices for Asian Paints, Berger Paints, Pidilite, IndiGo and Reliance through the server's Analytics Token. The practice scenario targets ₹20,000 per company in whole shares, uses the refreshed closes as simulated entry costs, and retains the unspent amount as virtual cash. Prices older than four days, missing prices and failed refreshes block creation.
+
+Review and confirm the holdings preview to create the paper account. Starting balance, unspent cash, and equity are shown above the holdings. The saved browser-tab snapshot retains the virtual cash and entry costs. Current valuation still depends on the workspace's saved closes. **Connect Upstox (optional)** imports an actual broker snapshot separately.
+
+The scenario is built into Market Events. The extension 1.5 **Open paper portfolio** shortcut opens this screen.
+
 ## Run and demonstrate
 
 1. From the repository root, run `npm.cmd run dev`. Follow the setup in [the project README](../README.md) if frontend or Python dependencies are missing.
@@ -134,12 +142,46 @@ UPSTOX_REDIRECT_URI=http://127.0.0.1:3000/api/portfolio/upstox
 
 In **My data – real companies → Portfolio**, click **Connect Upstox**, sign in on Upstox, then choose **Preview Upstox holdings → Import holdings**. Repeat the connection to retrieve a new snapshot. Use **Choose CSV** for Groww and other sources after mapping the export to the four supported columns.
 
-The local connector exchanges the authorization code server-side and uses the access token for one holdings request. The normalized draft expires within ten minutes and can be opened once in the same browser. Confirmed holdings stay in browser-tab storage. The connector accepts the registered loopback origin and needs a single running Next.js instance. Broker OAuth credentials are separate from `UPSTOX_ANALYTICS_TOKEN`, which powers recent prices and news. Real holdings outside the workspace universe still appear in the table, with saved prices and research marked unavailable where applicable.
+The connector exchanges the authorization code server-side when the holdings preview opens and uses the access token for one holdings request. OAuth state and the authorization code use a ten-minute encrypted, HttpOnly cookie, so the flow can cross Vercel instances. Upstox consumes the code once. Confirmed holdings stay in browser-tab storage. Register `https://final-yr-proj.vercel.app/api/portfolio/upstox` for the deployed app and configure its OAuth secrets in Vercel Production. Broker OAuth credentials are separate from `UPSTOX_ANALYTICS_TOKEN`, which powers recent prices and news. Real holdings outside the workspace universe still appear in the table, with saved prices and research marked unavailable where applicable.
 
 ### Install the Chrome shortcut locally
 
-In Chrome, open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select the repository’s `extension` folder. If it is already installed, click **Reload** on its extension card. Pin **Market Events Portfolio** and click its toolbar icon. Switch between **Real data** and **Demo** in the popup. When no real assessment exists, the popup starts in Demo. Choose **Real data → Set up real data** to open Connections without losing access to the demo. Click **Open for analysis** to open the exact verdict, or **Open Portfolio** to open holdings in the selected workspace. The popup requests loopback access to read saved evidence from Market Events. Upstox OAuth and holdings import happen on the website.
+In Chrome, open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select the repository’s `extension` folder. If it is already installed, click **Reload** on its extension card. Pin **Market Events Portfolio** and click its toolbar icon. Version 1.4 defaults to the deployed website, with **Local workspace** available in the website selector.
+
+Choose **Connect Upstox** to open a compact sign-in window. Vercel may first ask you to sign in. Enter your mobile verification and PIN on Upstox's page. After Upstox redirects back, the extension moves Portfolio to the original browser window and the website automatically previews the holdings. Select **Import holdings** to confirm the replacement and open the portfolio research. The extension stores only the temporary window/tab routing information in session storage.
+
+Switch between **Real data** and **Demo** to preview saved assessments. **Open for analysis** opens the saved case, and **Open Portfolio** opens the selected workspace. A protected deployed workspace may require opening and signing into the website before saved previews become available in the extension.
 
 ### Current verification
 
+The extension 1.4 handoff changed `extension/manifest.json`, `popup.html`, `popup.css`, `popup.js`, the new `background.js`, the Portfolio panel, and the Upstox route. Verification passed TypeScript and ESLint, four Playwright browser/OAuth checks, and the extension worker routing test. The website update was deployed to production and its extension entry reached Upstox's PIN screen. Next open item is reloading extension 1.4 in Chrome and completing real-account PIN verification to check the popup-to-main-window transition.
+
 The Portfolio browser checks and mocked OAuth checks passed. The review API also returned the expected case from a disposable synthetic ledger using local Qwen on CPU. Next open item is verification with an authenticated Upstox account and configured market-data credentials.
+
+### 26 November 2026 initial paper release verification (superseded below)
+
+The current release uses Sarvam's hosted models; the local Qwen result above describes an earlier checkpoint. Extension 1.5 adds **Open paper portfolio** and labels broker connection optional. Changed runtime files for the paper account are `web/app/_lib/paper-portfolio.ts`, `portfolio.ts`, `portfolio-panel.tsx`, and `research-app.tsx`, plus the extension popup and manifest.
+
+Verification passed 564 Python tests, 69 JavaScript tests, all 20 Playwright scenarios, TypeScript, ESLint, and a production build. Browser coverage includes imports, saved cases and exports, indicators, backtest/walk-forward, Monte Carlo, mobile layouts, paper account confirmation/persistence, and mocked OAuth/extension routing. The TradingView widget's external loading was stubbed in browser tests. Separate disposable-database integration checks exercised real Upstox prices/news and Sarvam structured extraction and explanation.
+
+Production was deployed and promoted to `https://final-yr-proj.vercel.app`. A fresh authenticated Brave tab created and confirmed the five-stock paper portfolio from completed 25 November daily closes. All five positions were priced; invested cost was ₹93,966.65 and unspent virtual cash ₹6,033.35, conserving the ₹1,00,000 balance. The holdings and cash survived reloading and returning to Portfolio.
+
+Open items: reload extension 1.5 in Chrome and complete the real Upstox PIN flow to verify actual holdings and the installed extension's window transition. Live research storage on Vercel remains temporary and can reset across deployments or instances; durable authenticated storage is still needed. Paper holdings and cash persist in the browser tab, while current valuations depend on saved server prices.
+
+### 26 November 2026 durable-storage and live-demo release
+
+Production now uses a connected free Neon Postgres database for private portfolios, articles, observations, runs, model traces and outcomes. The database URL is excluded from saved configuration and never sent to the browser. SQLite remains supported locally and for the isolated synthetic demo. Hosted startup requires a persistent database; it no longer silently saves private data under `/tmp`. The existing Vercel project authentication remains required for all deployments, with zero protection-bypass credentials.
+
+Confirmed private portfolios load from the server in new tabs and after deployments. Previously confirmed browser-tab holdings migrate only into an empty server snapshot. Revision checks reject stale writes from other tabs, and clearing retains a tombstone to prevent old cached holdings from reappearing. Authorized project visitors share the private workspace; per-user ownership is a separate future feature.
+
+The live paper section refreshes bounded Upstox latest-price snapshots every 15 seconds while visible, shows trade/fetch timestamps and missing coverage, and leaves immutable daily research observations unchanged. It offers a selected one-minute TradingView chart and a direct TradingView link. The hosted widget was observed loading its external frame, but complete real chart rendering was not confirmed; exchange entitlements and availability remain external constraints. No real orders are executed.
+
+Both hosted Sarvam analysis roles succeeded on imported provider news, saving parent run `63500fcf-d195-4464-ac1f-688069e62fc6` and successful explanation child `9623a56b-a3b5-4eee-9d03-141b8ac4bd8b`. The parent abstained because the news described an unsupported event family. A second production deployment restored the same five positions, cash, 424 observations and both runs. The full saved case payload and portfolio matched the before-deployment copy.
+
+The combined release passed 570 Python tests (three opt-in Postgres variants skipped in that offline run), 69 JavaScript tests, all 22 Playwright scenarios, TypeScript, ESLint and the production build. A separate database integration run passed all seven persistence checks, including the three Postgres variants in isolated temporary schemas. Visual review checked 13 views/subtabs at three widths: 39 layout checks passed; intro dismissal, reduced motion and theme contrast were also checked.
+
+The visual release gives every page a shared theme and motion system plus a skippable first-visit Home introduction. Runtime files include the Postgres/quote adapters, API schemas/routes, portfolio persistence hook, live paper panel, shared styles and introduction. Deployment `dpl_HH6o5opB2Cw1hhuw1MwjYKWj7bd2` was promoted to `https://final-yr-proj.vercel.app` after the redeploy check.
+
+Troubleshooting and verification are centralized in [diagnostics](../diagnostics/README.md), with [sanitized redeploy proof](../diagnostics/evidence/2026-11-26/redeploy-proof.json). Complete local outputs and the pre-cleanup synthetic database were archived under ignored `diagnostics/local/2026-11-26/`. The bundled demo fixture was restored to the committed synthetic baseline instead of shipping extra test runs. The old scratch export left the project root. Credentials, private data, local agent skills, caches and diagnostic archives remain excluded from Git/Vercel.
+
+Next open items: installed Chrome extension and authenticated broker holdings verification after user PIN entry. The [extension review](EXTENSION_INTEGRATION_IDEAS.md) proposes future selected-news capture and a side panel; those features are not shipped. Use [MENTOR_SHOWCASE.md](MENTOR_SHOWCASE.md) for the complete demonstration flow.

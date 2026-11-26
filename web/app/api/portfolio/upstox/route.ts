@@ -10,7 +10,7 @@ const HEADERS = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" 
 const STATE = /^[a-f0-9]{64}$/;
 const CODE = /^[!-~]{1,1024}$/;
 
-type Flow = { expiresAt: number; state: string; code?: string };
+type Flow = { expiresAt: number; state: string; code?: string; extension?: boolean };
 
 function config(request: NextRequest) {
   const clientId = process.env.UPSTOX_CLIENT_ID;
@@ -96,7 +96,10 @@ export async function POST(request: NextRequest) {
     return response;
   }
   if (action !== "start") return failure("Unknown portfolio action.", 400);
-  const flow = { state: randomBytes(32).toString("hex"), expiresAt: Date.now() + FLOW_SECONDS * 1000 };
+  const flow = {
+    state: randomBytes(32).toString("hex"), expiresAt: Date.now() + FLOW_SECONDS * 1000,
+    extension: request.nextUrl.searchParams.get("source") === "extension",
+  };
   const authorization = new URL("https://api.upstox.com/v2/login/authorization/dialog");
   authorization.search = new URLSearchParams({
     response_type: "code", client_id: settings.clientId, redirect_uri: settings.redirectUri, state: flow.state,
@@ -113,6 +116,7 @@ export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get("state") ?? "";
   const code = request.nextUrl.searchParams.get("code") ?? "";
   const target = new URL("/?view=portfolio&workspace=local&universe=live", settings.origin);
+  if (flow?.extension) target.searchParams.set("source", "extension");
   const back = (status: string) => {
     target.searchParams.set("upstox", status);
     return NextResponse.redirect(target, { status: 303, headers: HEADERS });

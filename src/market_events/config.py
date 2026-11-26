@@ -57,6 +57,7 @@ class Settings(BaseModel):
     model_config = ConfigDict(extra="forbid")
     root: Path = Path(".")
     database_path: Path = Path("data/market_events.sqlite")
+    database_url: SecretStr = Field(default=SecretStr(""), exclude=True)
     mode: Literal["live", "replay"] = "replay"
     universe: Literal["demo", "live"] = "demo"
     live_data: LiveDataSettings = Field(default_factory=LiveDataSettings)
@@ -80,6 +81,7 @@ def load_settings(root: Path = Path(".")) -> Settings:
     raw["root"] = root
     raw["mode"] = os.getenv("MARKET_EVENTS_MODE", raw.get("mode", "replay"))
     raw["universe"] = os.getenv("MARKET_EVENTS_UNIVERSE", raw.get("universe", "demo"))
+    raw["database_url"] = os.getenv("MARKET_EVENTS_DATABASE_URL") or os.getenv("DATABASE_URL", "")
     live = raw.get("live_data", {})
     token = os.getenv("UPSTOX_ANALYTICS_TOKEN") or os.getenv("UPSTOX_ACCESS_TOKEN")
     if token:

@@ -1,4 +1,4 @@
-const origin = "http://127.0.0.1:3000";
+let origin = "https://final-yr-proj.vercel.app";
 const real = { workspace: "local", universe: "live" };
 const demo = { workspace: "demo", universe: "demo" };
 const verdicts = new Map([
@@ -23,7 +23,7 @@ async function latest(scope) {
   const url = new URL("/api/research/workspace", origin);
   url.search = new URLSearchParams(scope);
   const response = await fetch(url, {
-    credentials: "omit",
+    credentials: "include",
     cache: "no-store",
     redirect: "error",
     signal: AbortSignal.timeout(2500),
@@ -89,7 +89,9 @@ async function showPreview(scope, fallbackToDemo = false) {
     status.hidden = true;
   } catch {
     if (request !== requestNumber) return;
-    status.textContent = "The local app is unavailable. Start Market Events and reopen this popup.";
+    status.textContent = origin.startsWith("https:")
+      ? "Open the website and sign into Vercel to view saved analysis."
+      : "The local app is unavailable. Start Market Events and reopen this popup.";
     details.href = siteUrl(scope, "home");
     details.textContent = "Open Market Events";
   }
@@ -97,4 +99,20 @@ async function showPreview(scope, fallbackToDemo = false) {
 
 byId("real").addEventListener("click", () => void showPreview(real));
 byId("demo").addEventListener("click", () => void showPreview(demo));
+byId("website").addEventListener("change", event => {
+  origin = event.target.value;
+  void showPreview(real);
+});
+byId("connect").addEventListener("click", async () => {
+  byId("connect").disabled = true;
+  try {
+    const result = await chrome.runtime.sendMessage({ action: "connect-upstox", origin });
+    if (!result?.ok) throw new Error("Could not open the Upstox sign-in window. Try again.");
+    window.close();
+  } catch (error) {
+    byId("status").hidden = false;
+    byId("status").textContent = error.message;
+    byId("connect").disabled = false;
+  }
+});
 void showPreview(real, true);
