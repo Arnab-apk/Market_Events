@@ -370,7 +370,7 @@ test("an explicit replay repeat links back to the original and an early cutoff a
     await page.getByLabel("Time", { exact: true }).fill("16:00");
     const early = await analyse();
     expect(early.assessment.direction).toBe("abstain");
-    await expect(verdict.getByText("No verdict: evidence incomplete.")).toBeVisible();
+    await expect(verdict.getByText("No verdict: a required condition was not met.")).toBeVisible();
     await expect(verdict.locator(".breakdown-notes")).toContainText(/commodity/i);
   } finally {
     await context.close();

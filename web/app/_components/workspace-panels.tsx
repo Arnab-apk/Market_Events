@@ -228,7 +228,7 @@ const STATUS_COPY: Record<string, { title: string; text: string }> = {
   ineligible: { title: "This article wasn't available yet.", text: "It was first seen after your decision time. Move the decision time later to analyse it." },
   irrelevant: { title: "Not relevant: not a market event.", text: "The screening step found nothing that should move this company's stock. No price evidence was needed." },
   duplicate: { title: "Same text as an earlier article.", text: "It reuses that article's result rather than analysing it twice." },
-  abstained: { title: "No verdict: evidence incomplete.", text: "Try a later decision time or check the price data." },
+  abstained: { title: "No verdict: a required condition was not met.", text: "The reasons are listed below. A direction is given only for earnings, orders or commodity supply disruptions with enough fresh price data." },
   failed: { title: "The analysis stopped early.", text: "Nothing was overwritten; you can retry as a linked repeat." },
   partial: { title: "The analysis stopped early.", text: "The call budget ran out. Nothing was overwritten; you can retry as a linked repeat." },
 };
