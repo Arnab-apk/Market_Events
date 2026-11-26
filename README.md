@@ -67,12 +67,18 @@ Use the [mentor showcase](docs/MENTOR_SHOWCASE.md) for a complete presentation w
 │   ├── outcomes.py           later next-open → fifth-close outcomes, stored separately
 │   ├── strategy_lab.py       historical backtests and Monte Carlo (studies end 2020-12-31)
 │   ├── experiments.py        policy usage, matched cohorts, ablations, agreement checks
+│   ├── screener.py           paper portfolio: rank companies from saved assessments + technicals
+│   ├── sizing.py             paper portfolio: split an INR budget into whole-share paper buys
+│   ├── risk_limits.py        paper portfolio: PASS/BLOCK each paper proposal, with reasons
+│   ├── rebalance.py          paper portfolio: drift check and paper trades back to target
+│   ├── paper_portfolio.py    paper portfolio: runs screen → size → risk, and rebalance → risk
 │   ├── storage.py            SQLite ledger with append-only saved records
 │   ├── api.py                FastAPI service used by the web dashboard
 │   └── __main__.py           command-line interface (python -m market_events)
 ├── web/                      Next.js dashboard (UI only; proxies to the Python API)
 ├── app.py                    original Streamlit interface (same engine, fallback UI)
-├── configs/                  companies, exposure rules, fusion rules, live universe, prices
+├── configs/                  companies, exposure rules, fusion rules, live universe, prices,
+│                             screener_rules.json and portfolio_rules.json (paper portfolio)
 ├── prompts/                  versioned model instructions (filter, extract, explain)
 ├── tests/                    pytest suite and synthetic fixtures (tests/fixtures/)
 ├── scripts/                  dev launcher and model/policy comparison helpers
@@ -81,12 +87,37 @@ Use the [mentor showcase](docs/MENTOR_SHOWCASE.md) for a complete presentation w
 
 `data/`, `runs/` and `scratch/` are local, gitignored working folders, so they may be missing on a fresh checkout.
 
+## Paper portfolio (research only)
+
+Four commands turn saved assessments into **paper proposals**. They never place orders, use only
+local data available at `--as-of`, and print "research only, not advice". Add `--json` for raw output.
+
+```powershell
+$py = ".\.venv\Scripts\python.exe"
+& $py -m market_events --database data/demo.sqlite paper-screen --as-of 2020-12-31T15:30:00+05:30
+& $py -m market_events --database data/demo.sqlite paper-size --as-of 2020-12-31T15:30:00+05:30 --budget 100000
+& $py -m market_events --database data/demo.sqlite paper-risk --plan runs/paper/<file>.json
+& $py -m market_events --database data/demo.sqlite paper-rebalance --positions positions.json --cash 9200 --as-of 2020-12-31T15:30:00+05:30
+```
+
+- `paper-screen` checks each company's latest assessment against the screener rules and lists a ranked shortlist.
+- `paper-size` splits a hypothetical INR budget across that shortlist in whole shares, keeping a cash buffer and a per-name cap.
+- `paper-risk` marks each proposal in a saved plan PASS or BLOCK, with every reason it was blocked.
+- `paper-rebalance` compares paper holdings with target weights and proposes paper trades for names that drifted outside the band.
+  `positions.json` is a JSON list of `{"instrument_id": ..., "quantity": whole_shares}`.
+
+Add `--json` for raw output. `paper-size` and `paper-rebalance` save the plan to `runs/paper/` (gitignored) unless you pass `--no-save`.
+
+The demo database's runs are dated 2026, so the 2020 cutoff above returns an empty plan with a warning. The tests use synthetic fixtures only.
+
 ## Honest limits
 
 - All bundled data is synthetic. There is no held-out real-market evaluation, and no accuracy, calibration or profitability claim.
 - The real-data provider adapter is tested only with mocked HTTP. A real-account connection is unverified.
 - Fusion weights and exposure rules are conceptual assumptions, not fitted or empirically validated.
 - This is a single-user local tool, with no authentication or trading integration.
+- The paper portfolio layer is tested only on synthetic data. Its rules are untuned defaults, and its proposals are not advice.
+- The paper portfolio ideas are adapted from MIT-licensed trader-skill. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Further reading
 

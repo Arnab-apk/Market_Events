@@ -286,3 +286,85 @@ class EventOutcome(Record):
     label: str | None = None
     reason: str = ""
     definition_version: str = "outcome-v1"
+
+
+# --- Paper portfolio (research only; nothing here places orders) ---------------------------
+
+PAPER_LABEL = "paper proposal — research only, not advice"
+
+
+class ScreenRow(Record):
+    """One screened assessment: every rule check, pass/fail, score and rank."""
+
+    company_id: str = Field(min_length=1)
+    instrument_id: str = Field(min_length=1)
+    passed: bool
+    checks: list[dict] = Field(default_factory=list)
+    score: float | None = None
+    rank: int | None = Field(default=None, ge=1)
+    run_id: str | None = None
+
+
+class ScreenResult(Record):
+    """Screener output at a cutoff: all rows plus the ranked shortlist of instrument IDs."""
+
+    as_of: AwareTime
+    rules_version: str = Field(min_length=1)
+    rows: list[ScreenRow] = Field(default_factory=list)
+    shortlist: list[str] = Field(default_factory=list)
+
+
+class PaperPosition(Record):
+    """A hypothetical whole-share holding valued at a cutoff-safe price."""
+
+    instrument_id: str = Field(min_length=1)
+    quantity: int = Field(ge=0)
+    price: float = Field(gt=0, allow_inf_nan=False)
+    value: float = Field(allow_inf_nan=False)
+    weight: float = Field(allow_inf_nan=False)
+
+
+class PaperTradeProposal(Record):
+    """A hypothetical paper trade. Not an order; the ID is a stable hash of the contents."""
+
+    proposal_id: str = ""
+    instrument_id: str = Field(min_length=1)
+    side: Literal["buy", "sell"]
+    quantity: int = Field(gt=0)
+    price: float = Field(gt=0, allow_inf_nan=False)
+    amount_inr: float = Field(allow_inf_nan=False)
+    reason: str
+    label: str = PAPER_LABEL
+
+    @model_validator(mode="after")
+    def fingerprint(self):
+        """Derive the proposal ID from every other field."""
+        content = self.model_dump(mode="json", exclude={"proposal_id"})
+        key = "|".join(f"{k}={content[k]}" for k in sorted(content))
+        identifier = hashlib.sha256(key.encode()).hexdigest()[:16]
+        if self.proposal_id and self.proposal_id != identifier:
+            raise ValueError("proposal_id does not match proposal contents")
+        object.__setattr__(self, "proposal_id", identifier)
+        return self
+
+
+class RiskVerdict(Record):
+    """PASS or BLOCK for one paper proposal, with every blocking reason."""
+
+    proposal_id: str
+    verdict: Literal["PASS", "BLOCK"]
+    reasons: list[str] = Field(default_factory=list)
+
+
+class PaperPlan(Record):
+    """A paper plan: resulting positions, proposals, risk verdicts and warnings."""
+
+    as_of: AwareTime
+    rules_version: str = Field(min_length=1)
+    budget_inr: float = Field(allow_inf_nan=False)
+    cash_inr: float = Field(allow_inf_nan=False)
+    positions: list[PaperPosition] = Field(default_factory=list)
+    proposals: list[PaperTradeProposal] = Field(default_factory=list)
+    verdicts: list[RiskVerdict] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    label: str = PAPER_LABEL

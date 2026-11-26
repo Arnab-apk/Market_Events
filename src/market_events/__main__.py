@@ -1,6 +1,7 @@
 """Command line interface (``python -m market_events ...``). Each subcommand opens the configured
 ledger and calls one public workflow: demo, import, analyse, outcomes, export, experiments,
-technicals or explicit live syncs. Numerical rules stay in the domain modules; this file only
+technicals, paper portfolio proposals (paper-screen/size/risk/rebalance; research only, never
+orders) or explicit live syncs. Numerical rules stay in the domain modules; this file only
 parses arguments and prints results.
 """
 
@@ -91,6 +92,7 @@ def main(argv=None):
     export.add_argument("--run-id")
     experiments = commands.add_parser("experiments")
     experiments.add_argument("--output", type=Path, default=Path("runs/experiments.json"))
+    _add_paper_commands(commands)
     args = parser.parse_args(argv)
     try:
         settings = load_settings(args.root)
@@ -119,6 +121,8 @@ def main(argv=None):
             settings.mode = args.mode
         with Storage(settings.database_path) as storage:
             dependencies = Dependencies(storage, settings)
+            if args.command.startswith("paper-"):
+                return _run_paper(args, storage, settings.universe)
             if args.command == "readiness":
                 print(json.dumps(readiness(dependencies), indent=2))
                 return 0
@@ -231,6 +235,78 @@ def main(argv=None):
     except (ValueError, OSError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
+
+
+def _cutoff(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _add_paper_commands(commands) -> None:
+    """Paper portfolio subcommands: research proposals only, never orders."""
+    note = "paper proposal, research only, not advice"
+    screen = commands.add_parser("paper-screen", help=f"Rank saved assessments ({note})")
+    size = commands.add_parser("paper-size", help=f"Size an INR budget into paper buys ({note})")
+    risk = commands.add_parser("paper-risk", help=f"Re-check a saved paper plan ({note})")
+    rebalance = commands.add_parser(
+        "paper-rebalance", help=f"Paper trades back to target weights ({note})"
+    )
+    for sub in (screen, size, rebalance):
+        sub.add_argument("--as-of", type=_cutoff, required=True)
+    size.add_argument("--budget", type=float, help="INR budget (default: portfolio_rules.json)")
+    risk.add_argument("--plan", type=Path, required=True, help="Saved plan JSON file")
+    rebalance.add_argument(
+        "--positions",
+        type=Path,
+        required=True,
+        help='JSON list of {"instrument_id": ..., "quantity": whole shares}',
+    )
+    rebalance.add_argument("--cash", type=float, required=True, help="Paper cash in INR")
+    for sub in (screen, size, risk, rebalance):
+        sub.add_argument("--json", action="store_true", help="Print raw JSON")
+    for sub in (size, rebalance):
+        sub.add_argument("--no-save", action="store_true", help="Do not write runs/paper/*.json")
+
+
+def _emit(text: str) -> None:
+    """Print readably on any console: non-UTF-8 consoles get ASCII dash and rupee spellings."""
+    encoding = sys.stdout.encoding or "utf-8"
+    if encoding.lower().replace("-", "") != "utf8":
+        text = text.replace("—", "-").replace("₹", "Rs ")
+    print(text.encode(encoding, errors="replace").decode(encoding))
+
+
+def _run_paper(args, storage, universe: str) -> int:
+    from .paper_portfolio import (
+        build_plan,
+        build_rebalance,
+        build_screen,
+        check_plan,
+        load_plan,
+        plan_table,
+        save_plan,
+        scoped,
+        screen_table,
+        to_json,
+    )
+
+    ledger = scoped(storage, universe)
+    if args.command == "paper-screen":
+        result = build_screen(ledger, args.root, args.as_of)
+        _emit(to_json(result) if args.json else screen_table(result))
+        return 0
+    if args.command == "paper-size":
+        plan = build_plan(ledger, args.root, args.as_of, budget_inr=args.budget)
+    elif args.command == "paper-risk":
+        plan = check_plan(ledger, args.root, load_plan(args.plan))
+    else:
+        positions = json.loads(args.positions.read_text(encoding="utf-8"))
+        if not isinstance(positions, list):
+            raise ValueError("Positions file must be a JSON list of {instrument_id, quantity}")
+        plan = build_rebalance(ledger, args.root, positions, args.cash, args.as_of)
+    if args.command != "paper-risk" and not args.no_save:
+        print(f"Saved paper plan to {save_plan(plan, args.root)}", file=sys.stderr)
+    _emit(to_json(plan) if args.json else plan_table(plan))
+    return 0
 
 
 if __name__ == "__main__":

@@ -33,3 +33,9 @@ Price-indicator computation is a separate explicit local form with a current awa
 The redesign groups the research workflow into **Home**, **Analyse**, **Results** and **Lab**, with a separate **Settings** gear. Keep the quick start on **Home** and the verdict beside the story in **Analyse**. Put saved cases and comparisons under **Results**, and put indicators, backtests and Monte Carlo under **Lab**. **Settings › Appearance** offers **Light**, **Dark** and **System**, with light as the default.
 
 Old view links open the corresponding tabs, including **Backtest** for bare `?view=lab`. The main **Lab** link opens **Indicators** explicitly. The dashboard uses plain-language verdicts such as **Mixed** while retaining the underlying research direction, score, coverage and audit data. The Python research engine, API contracts and calculations remain unchanged.
+
+## 2026-11-24 · Paper portfolio layer for research
+
+Add a paper portfolio layer (`screener`, `sizing`, `risk_limits`, `rebalance`, orchestrated by `paper_portfolio`) that turns saved assessments into a ranked shortlist, a whole-share INR paper allocation, PASS/BLOCK risk verdicts and drift-based rebalance proposals. Its ideas come from four MIT-licensed trader-skill skills (see `THIRD_PARTY_NOTICES.md`). The code was rewritten for NSE equities and INR, not copied, and the US-only parts were left out. Rules live in versioned `configs/screener_rules.json` and `configs/portfolio_rules.json`. Every step uses only runs and prices available at the `as_of` cutoff, and it makes no network calls.
+
+The scope decision above still holds: no trading, no broker SDK and no order APIs. Outputs are `PaperTradeProposal` records labelled "paper proposal — research only, not advice". They are never orders, and they do not change saved runs or fusion. Tests use synthetic fixtures only. Nothing shows the proposals are profitable or suitable for real money.

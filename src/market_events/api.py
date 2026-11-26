@@ -29,9 +29,12 @@ from .api_schemas import (
     HistoryRequest,
     ImportRequest,
     MonteCarloRequest,
+    PaperRebalanceRequest,
+    PaperScreenRequest,
+    PaperSelection,
+    PaperSizeRequest,
     PortfolioReviewRequest,
     PortfolioSaveRequest,
-    PaperSelection,
     StockSearch,
     StockSelection,
     SyncRequest,
@@ -568,6 +571,45 @@ def create_app(root=None, settings=None):
             "evidence": "Client-supplied historical returns; no claim of future-market probabilities.",
         }
         return result
+
+    # ---------------------------------------------------------------------------
+    # Paper portfolio (read-only research proposals; nothing is saved or ordered)
+    # ---------------------------------------------------------------------------
+
+    @api.post("/api/paper/screen")
+    def paper_screen(
+        payload: PaperScreenRequest, workspace: Workspace = "local", universe: Universe = "live"
+    ):
+        from .paper_portfolio import build_screen, scoped
+
+        with dependencies(workspace, universe) as deps:
+            ledger = scoped(deps.storage, deps.settings.universe)
+            return build_screen(ledger, api.state.root, payload.as_of).model_dump(mode="json")
+
+    @api.post("/api/paper/size")
+    def paper_size(
+        payload: PaperSizeRequest, workspace: Workspace = "local", universe: Universe = "live"
+    ):
+        from .paper_portfolio import build_plan, scoped
+
+        with dependencies(workspace, universe) as deps:
+            ledger = scoped(deps.storage, deps.settings.universe)
+            plan = build_plan(ledger, api.state.root, payload.as_of, payload.budget_inr)
+            return plan.model_dump(mode="json")
+
+    @api.post("/api/paper/rebalance")
+    def paper_rebalance(
+        payload: PaperRebalanceRequest, workspace: Workspace = "local", universe: Universe = "live"
+    ):
+        from .paper_portfolio import build_rebalance, scoped
+
+        with dependencies(workspace, universe) as deps:
+            ledger = scoped(deps.storage, deps.settings.universe)
+            holdings = [row.model_dump() for row in payload.positions]
+            plan = build_rebalance(
+                ledger, api.state.root, holdings, payload.cash_inr, payload.as_of
+            )
+            return plan.model_dump(mode="json")
 
     # ---------------------------------------------------------------------------
     # Explicit provider sync and live news batches
